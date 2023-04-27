@@ -3,7 +3,7 @@ The U.S. Army Corps of Engineers TotalRisk software (RMC-TotalRisk) performs qua
 
 RMC-TotalRisk has an intuitive workflow to step the user through the required inputs, including importing flood hazard curves from RMC-BestFit and RMC-RFA, and importing consequence estimates from LifeSim. The user can develop system response functions using a built-in event tree analysis control. 
 
-![TotalRiskImage](https://user-images.githubusercontent.com/123974306/234910902-94e9c1b2-18eb-4242-95fb-a484cce4c6d4.png)
+![TotalRiskImage](https://user-images.githubusercontent.com/123974306/234911340-fa753eda-8796-46e5-8602-09685c002d92.png)
 
 ## Downloads
 * [Download Version 1.0 Beta](https://github.com/USACE-RMC/RMC-TotalRisk/blob/253cd6176d66c029945c483f23744b95121b90dd/RMC-TotalRisk_Beta_3-12-2023.zip)
