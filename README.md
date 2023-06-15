@@ -15,7 +15,7 @@ The RMC-TotalRisk projects used for verification testing can be downloaded [here
 ## Documentation
 * [RMC-TotalRisk User's Guide (DRAFT)](https://github.com/USACE-RMC/RMC-TotalRisk/files/11762136/RMC-TR-2023-XX.-.RMC-TotalRisk.User.s.Guide.-.04-24-23.pdf)
 * [Quantitative Risk Analysis with RMC-TotalRisk (DRAFT)](https://github.com/USACE-RMC/RMC-TotalRisk/files/11762137/RMC-TR-2023-XX.-.Quantitative.Risk.Analysis.with.RMC-TotalRisk.-.06-14-23.pdf)
-* Verification of the RMC-TotalRisk Software (DRAFT)
+* [Verification of the RMC-TotalRisk Software (DRAFT)](https://github.com/USACE-RMC/RMC-TotalRisk/files/11762490/RMC-TR-2023-XX.-.Verification.of.the.RMC-TotalRisk.Software.-.06-15-23.pdf)
 * [ANCOLD 2022 - A New Comprehensive Risk Analysis Software, RMC-TotalRisk](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240679/ANCOLD-2022_RMC-TotalRisk_Smith_and_Fields_Final.pdf)
 * [Journal of Dam Safety - A New Suite of Risk Analysis Software for Dam and Levee Safety](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240680/18.3_Smith_NewSuiteRiskAnalysis.pdf)
 
