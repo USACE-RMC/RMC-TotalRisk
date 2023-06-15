@@ -10,6 +10,8 @@ RMC-TotalRisk has an intuitive workflow to step the user through the required in
 
 RMC-TotalRisk is currently being beta tested by a large group of practitioners in the public and private sector. Version 1.0 of the software and documentation is also being externally peer reviewed by industry experts. An official release of version 1.0 is anticipated for later in 2023. 
 
+The RMC-TotalRisk projects used for verification testing can be downloaded [here](https://github.com/USACE-RMC/RMC-TotalRisk/blob/421a276268ace4e1b8e61c8502324f9866fe6af9/Verification%20Projects.zip). This download also includes example R scripts for replicating some of the tests.  
+
 ## Documentation
 * [Journal of Dam Safety - A New Suite of Risk Analysis Software for Dam and Levee Safety](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240680/18.3_Smith_NewSuiteRiskAnalysis.pdf)
 * [ANCOLD 2022 - A New Comprehensive Risk Analysis Software, RMC-TotalRisk](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240679/ANCOLD-2022_RMC-TotalRisk_Smith_and_Fields_Final.pdf)
