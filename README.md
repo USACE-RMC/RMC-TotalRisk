@@ -10,6 +10,8 @@ RMC-TotalRisk has an intuitive workflow to step the user through the required in
 
 RMC-TotalRisk is currently being beta tested by a large group of practitioners in the public and private sector. Version 1.0 of the software and documentation is also being externally peer reviewed by industry experts. An official release of version 1.0 is anticipated for later in 2023. 
 
+Two example RMC-TotalRisk projects can be downloaded [here](https://github.com/USACE-RMC/RMC-TotalRisk/blob/421a276268ace4e1b8e61c8502324f9866fe6af9/Verification%20Projects.zip). Also included is a project file that has all of the typical event tree configurations used by the RMC for dam and levee risk analyses. Any one of these event trees can be created from a template in RMC-TotalRisk.
+
 The RMC-TotalRisk projects used for verification testing can be downloaded [here](https://github.com/USACE-RMC/RMC-TotalRisk/blob/421a276268ace4e1b8e61c8502324f9866fe6af9/Verification%20Projects.zip). This download also includes example R scripts for replicating some of the tests.  
 
 ## Documentation
