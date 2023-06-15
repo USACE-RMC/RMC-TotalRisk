@@ -13,8 +13,11 @@ RMC-TotalRisk is currently being beta tested by a large group of practitioners i
 The RMC-TotalRisk projects used for verification testing can be downloaded [here](https://github.com/USACE-RMC/RMC-TotalRisk/blob/421a276268ace4e1b8e61c8502324f9866fe6af9/Verification%20Projects.zip). This download also includes example R scripts for replicating some of the tests.  
 
 ## Documentation
-* [Journal of Dam Safety - A New Suite of Risk Analysis Software for Dam and Levee Safety](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240680/18.3_Smith_NewSuiteRiskAnalysis.pdf)
+* [RMC-TotalRisk User's Guide (DRAFT)](https://github.com/USACE-RMC/RMC-TotalRisk/files/11762136/RMC-TR-2023-XX.-.RMC-TotalRisk.User.s.Guide.-.04-24-23.pdf)
+* [Quantitative Risk Analysis with RMC-TotalRisk (DRAFT)](https://github.com/USACE-RMC/RMC-TotalRisk/files/11762137/RMC-TR-2023-XX.-.Quantitative.Risk.Analysis.with.RMC-TotalRisk.-.06-14-23.pdf)
+* Verification of the RMC-TotalRisk Software (DRAFT)
 * [ANCOLD 2022 - A New Comprehensive Risk Analysis Software, RMC-TotalRisk](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240679/ANCOLD-2022_RMC-TotalRisk_Smith_and_Fields_Final.pdf)
+* [Journal of Dam Safety - A New Suite of Risk Analysis Software for Dam and Levee Safety](https://github.com/USACE-RMC/RMC-TotalRisk/files/11240680/18.3_Smith_NewSuiteRiskAnalysis.pdf)
 
 ## Training
 * [Risk Management Center Training Center](https://www.rmc.usace.army.mil/Training/)
