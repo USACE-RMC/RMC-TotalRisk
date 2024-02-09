@@ -6,7 +6,7 @@ RMC-TotalRisk has an intuitive workflow to step the user through the required in
 ![TotalRiskImage](https://user-images.githubusercontent.com/123974306/234911340-fa753eda-8796-46e5-8602-09685c002d92.png)
 
 ## Downloads
-* [Download Version 1.0 Beta](https://github.com/USACE-RMC/RMC-TotalRisk/blob/3a0235a860ed7b0688196f2a90986cdb8b98b32c/RMC-TotalRisk_Beta_6-15-23.zip)
+* [Download Version 1.0 Beta](https://github.com/USACE-RMC/RMC-TotalRisk/blob/main/RMC-TotalRisk_Beta_11-28-23.zip)
 
 RMC-TotalRisk is currently being beta tested by a large group of practitioners in the public and private sector. Version 1.0 of the software and documentation is also being externally peer reviewed by industry experts. An official release of version 1.0 is anticipated for later in 2023. 
 
