@@ -11,7 +11,6 @@ RMC-TotalRisk has an intuitive workflow to guide users through the required inpu
 RMC-TotalRisk is currently being beta tested by a large group of practitioners in the public and private sector. Version 1.0 of the software and documentation is also being externally peer reviewed by industry experts. An official release of version 1.0 is anticipated for later in 2024. 
 
 ## Documentation
-Many of the offical 
 * [RMC-TotalRisk User's Guide (DRAFT)](https://github.com/user-attachments/files/17684818/RMC-TR-2023-XX.-.RMC-TotalRisk.User.s.Guide.-.04-24-23.pdf)
 * [RMC-TotalRisk Technical Reference Manual (DRAFT)](https://github.com/user-attachments/files/17684820/RMC-TR-2023-XX.-.Quantitative.Risk.Analysis.with.RMC-TotalRisk.-.06-14-23.pdf)
 * [RMC-TotalRisk Verification Report (DRAFT)](https://github.com/user-attachments/files/17684821/RMC-TR-2023-XX.-.Verification.of.the.RMC-TotalRisk.Software.-.06-15-23.pdf)
