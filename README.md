@@ -12,15 +12,12 @@ RMC-TotalRisk is currently being beta tested by a large group of practitioners i
 
 ## Documentation
 Many of the offical 
-* [RMC-TotalRisk User's Guide (DRAFT)][Uploading RMC-TR-2023-XX - RMC-TotalRisk User's Guide - 04-24-23.pdf…]()
-* [RMC-TotalRisk Technical Reference Manual (DRAFT)][Uploading RMC-TR-2023-XX - Quantitative Risk Analysis with RMC-TotalRisk - 06-14-23.pdf…]()
-* [RMC-TotalRisk Verification Report (DRAFT)][Uploading RMC-TR-2023-XX - Verification of the RMC-TotalRisk Software - 06-15-23.pdf…]()
-
-* [Journal of Dam Safety 2021- A New Suite of Risk Analysis Software for Dam and Levee Safety][Uploading 18.3_Smith_NewSuiteRiskAnalysis.pdf…]()
+* [RMC-TotalRisk User's Guide (DRAFT)](https://github.com/user-attachments/files/17684818/RMC-TR-2023-XX.-.RMC-TotalRisk.User.s.Guide.-.04-24-23.pdf)
+* [RMC-TotalRisk Technical Reference Manual (DRAFT)](https://github.com/user-attachments/files/17684820/RMC-TR-2023-XX.-.Quantitative.Risk.Analysis.with.RMC-TotalRisk.-.06-14-23.pdf)
+* [RMC-TotalRisk Verification Report (DRAFT)](https://github.com/user-attachments/files/17684821/RMC-TR-2023-XX.-.Verification.of.the.RMC-TotalRisk.Software.-.06-15-23.pdf)
+* [Journal of Dam Safety 2021- A New Suite of Risk Analysis Software for Dam and Levee Safety](https://github.com/user-attachments/files/17684829/18.3_Smith_NewSuiteRiskAnalysis.pdf)
 * [ANCOLD 2022 - A New Comprehensive Risk Analysis Software, RMC-TotalRisk](https://github.com/user-attachments/files/17684796/ANCOLD.-.2022.-.A.new.comprehensive.risk.analysis.software.RMC-TotalRisk.pdf)
 * [ASDSO 2024 - A New Quantitative Risk Analysis Software for Dam and Levee Safety, RMC-TotalRisk](https://github.com/user-attachments/files/17684807/ASDSO.-.2024.-.New.Quantitative.Risk.Analysis.Software.RMC-TotalRisk.pdf)
-
-
 
 ## Training
 * [Risk Management Center Training Center](https://www.rmc.usace.army.mil/Training/)
