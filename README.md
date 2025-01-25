@@ -1,14 +1,15 @@
 # RMC-TotalRisk
-The U.S. Army Corps of Engineers (USACE) Risk Management Center (RMC) introduces RMC-TotalRisk, a comprehensive risk analysis software designed to support dam and levee safety investment decisions. It performs quantitative risk calculations for a system using hazard, system response, and consequence functions. RMC-TotalRisk is part of an integrated software suite designed to support risk assessments. The software features a fully integrated modeling platform, including a modern graphical user interface, data entry, report-quality charts, and diagnostic tools. RMC-TotalRisk can evaluate risk for a single component with multiple failure modes, as well as for complex systems comprised of multiple components.
+The U.S. Army Corps of Engineers TotalRisk software (RMC-TotalRisk) performs quantitative risk calculations for a system from a set of hazard, transform, system response, and consequence functions. RMC-TotalRisk is part of an integrated software suite that supports risk assessments. The software features a fully integrated modeling platform, including a modern graphical user interface, data entry, report quality charts, and diagnostic tools. RMC-TotalRisk can evaluate risk for a single component with multiple failure modes and a complex system comprised of multiple components.
 
-RMC-TotalRisk has an intuitive workflow to guide users through the required inputs, including importing flood hazard curves from RMC-BestFit and RMC-RFA, and importing consequence estimates from LifeSim. Users can develop system response functions using a built-in event tree analysis tool. TotalRisk is also capable of running a full Monte Carlo analysis, simulating uncertainty in every input, with runtimes on the order of a few seconds to minutes.
+RMC-TotalRisk is a powerful risk analysis software designed with an intuitive and easy-to-use interface. It simplifies the complexity of risk assessments by connecting the core components of risk — hazard, transform, response, and consequences — through a clear and intuitive risk diagram. The software generates a comprehensive range of risk outputs, including excess, background, total, failure, and non-failure risks. Each component of the analysis can incorporate uncertainty, and the software supports modeling multiple locations with distinct failure modes as separate system components, streamlining system-level risk evaluations.
 
-![TotalRiskImage](https://user-images.githubusercontent.com/123974306/234911340-fa753eda-8796-46e5-8602-09685c002d92.png)
+![image](https://github.com/user-attachments/assets/a013e61c-f9c0-4cef-bbe9-817768da6e74)
 
 ## Downloads
 * [Download Version 1.0 Beta](https://github.com/USACE-RMC/RMC-TotalRisk/blob/2da62750ccebc76b481c1d635ad38b8b3423501f/RMC-TotalRisk_Beta_3-9-2024.zip)
 
-RMC-TotalRisk is currently being beta tested by a large group of practitioners in the public and private sector. Version 1.0 of the software and documentation is also being externally peer reviewed by industry experts. An official release of version 1.0 is anticipated for later in 2024. 
+## Support
+RMC-TotalRisk builds on nearly two decades of expertise in flood risk methodologies and is regularly updated to address the evolving needs of the risk analysis community. The RMC is dedicated to maintaining and supporting the software, delivering updates, bug fixes, and enhancements annually or as needed.
 
 ## Documentation
 * [RMC-TotalRisk User's Guide](https://usace-rmc.github.io/RMC-TotalRisk-Users-Guide/1_0/)
