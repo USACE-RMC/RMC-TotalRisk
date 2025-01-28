@@ -6,7 +6,7 @@ RMC-TotalRisk is a powerful risk analysis software designed with an intuitive an
 ![image](https://github.com/user-attachments/assets/a013e61c-f9c0-4cef-bbe9-817768da6e74)
 
 ## Downloads
-* [Download Version 1.0 Beta](https://github.com/USACE-RMC/RMC-TotalRisk/blob/2da62750ccebc76b481c1d635ad38b8b3423501f/RMC-TotalRisk_Beta_3-9-2024.zip)
+* [Download Version 1.0](https://github.com/USACE-RMC/RMC-TotalRisk/releases/download/v1.0/RMC-TotalRisk.v1.0.zip)
 
 ## Support
 RMC-TotalRisk builds on nearly two decades of expertise in flood risk methodologies and is regularly updated to address the evolving needs of the risk analysis community. The RMC is dedicated to maintaining and supporting the software, delivering updates, bug fixes, and enhancements annually or as needed.
