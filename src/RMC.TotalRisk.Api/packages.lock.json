@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "Microsoft.AspNetCore.OpenApi": {
+        "type": "Direct",
+        "requested": "[10.0.*, )",
+        "resolved": "10.0.12",
+        "contentHash": "7RnQ/UKn+kK3JDLmTpW+vVqNErWthGPAVAy1aIiBzv4ucQ6g9NFvOJUuT0PHcpvcJxGVxctMxj6t+NESWMrgHQ==",
+        "dependencies": {
+          "Microsoft.OpenApi": "[2.12.0, 3.0.0)"
+        }
+      },
+      "Microsoft.OpenApi": {
+        "type": "Direct",
+        "requested": "[2.*, )",
+        "resolved": "2.12.2",
+        "contentHash": "ZkT7qiJe0Kj0+DTZOZo+xrDy1kNmdsWFQVPIQLNx9ZJ0T9cB2LG7r+Bi60so8/+yg1nkS7QCPadrzsTG4VPKrA=="
+      },
+      "ModelContextProtocol.AspNetCore": {
+        "type": "Direct",
+        "requested": "[2.0.0-preview.1, )",
+        "resolved": "2.0.0-preview.1",
+        "contentHash": "dI1ly5d1L76OAv+TPBjHUg8j2gcdKxkFwTccl8JCXmO4PtyIqMldlP4VFwntVK2E5dVqGBCaUSolWSPTdlvIoQ==",
+        "dependencies": {
+          "ModelContextProtocol": "2.0.0-preview.1"
+        }
+      },
+      "Microsoft.Extensions.AI.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.5.2",
+        "contentHash": "Ei+YWV9Ybnps7pR1dgjlG29gelXEwZkhLVAcWmKe6HvXS6LNBYgSdWiY3Hk9OZXYtK34rv/NtLWBQYQGOBQYPQ=="
+      },
+      "ModelContextProtocol": {
+        "type": "Transitive",
+        "resolved": "2.0.0-preview.1",
+        "contentHash": "GZPM4WRPszXVT6talD9G08B70X4Fyw3ymrscpPJA5y5skuQBa0K7MvsAWXuTeMV1XLJAF0Km2JgI9L3L1Q7gRA==",
+        "dependencies": {
+          "ModelContextProtocol.Core": "2.0.0-preview.1"
+        }
+      },
+      "ModelContextProtocol.Core": {
+        "type": "Transitive",
+        "resolved": "2.0.0-preview.1",
+        "contentHash": "a4OsvyTX99dHVzqwx5nGoQX9PwQQxG+RTPt4UGB6MTwP8JA5KXXQd5S1+ziXXXGrQmPSwBTQFfFKI7EVK43r8A==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.5.2"
+        }
+      },
+      "rmc.totalrisk": {
+        "type": "Project",
+        "dependencies": {
+          "RMC.Numerics": "[2.2.0-dev.7a80e35, )"
+        }
+      },
+      "RMC.Numerics": {
+        "type": "CentralTransitive",
+        "requested": "[2.2.0-dev.7a80e35, )",
+        "resolved": "2.2.0-dev.7a80e35",
+        "contentHash": "46S7kM8SQz1hIZTWBLAp2nITYa6QLbFrd8Yztt6hOIBI0K6ZD3xQb9mZiMfi9OmWGHBNhqc8nPuzymBAIlHZlg=="
+      }
+    }
+  }
+}

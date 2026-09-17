@@ -35,10 +35,4 @@
     <ProjectReference Include="..\RMC.TotalRisk\RMC.TotalRisk.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="Numerics">
-      <HintPath>..\..\..\numerics\Numerics\bin\Debug\net10.0\Numerics.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
 </Project>

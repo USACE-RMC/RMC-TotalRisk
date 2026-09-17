@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
+    <!-- Every project commits a packages.lock.json so a commit fully determines its package graph;
+         the container image and the CWBI workflow restore with -locked-mode against it. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <!-- Opt-in XML documentation enforcement. Normal builds do not fail on missing docs;

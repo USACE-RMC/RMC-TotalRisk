@@ -13,13 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- RMC.Numerics flows transitively through the library's PackageReference. -->
     <ProjectReference Include="..\..\..\src\RMC.TotalRisk\RMC.TotalRisk.csproj" />
-    <!-- The library's interim sibling-repo Numerics reference is a plain <Reference> and does
-         not flow transitively through the ProjectReference - mirror it here until the
-         RMC.Numerics PackageReference switch (roadmap Phase 8). -->
-    <Reference Include="Numerics">
-      <HintPath>..\..\..\..\numerics\Numerics\bin\Debug\net10.0\Numerics.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>
