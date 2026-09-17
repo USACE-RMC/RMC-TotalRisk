@@ -1,0 +1,237 @@
+# Builds and verifies the RMC-TotalRisk image, then publishes it to CWBI's
+# dst-total-risk ECR repository. Updating dst-total-risk:dev is the deployment signal consumed
+# by CWBI's existing ECR-source CodePipeline; this workflow does not call ECS.
+#
+# This file is published into cwbi-apps/dst-total-risk by scripts/Publish-CwbiSnapshot.ps1
+# and is exercised by .github/tests/CwbiApiWorkflow.Tests.ps1, which pins the step
+# names, order, action revisions, and script fragments below. Change both together.
+name: Build/Push RMC-TotalRisk to Dev
+
+on:
+  push:
+    branches: [cwbi-dev]
+  workflow_dispatch:
+
+concurrency:
+  group: cwbi-total-risk-dev
+  cancel-in-progress: false
+
+env:
+  AWS_ACCOUNT_ID: "718787032875"
+  AWS_REGION: us-gov-west-1
+  # Assumed by convention from the dst-api and dst-total-risk roles; confirmed by the first run.
+  ROLE_TO_ASSUME: arn:aws-us-gov:iam::718787032875:role/github-actions-ecr-dst-total-risk
+  ECR_REPOSITORY: dst-total-risk
+  DEPLOYMENT_TAG: dev
+  LOCAL_IMAGE: dst-total-risk:deployment-candidate
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-push-dev:
+    if: github.ref == 'refs/heads/cwbi-dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: src/**/packages.lock.json
+
+      - name: Verify deployment workflow contract
+        shell: pwsh
+        run: >-
+          ./.github/tests/CwbiApiWorkflow.Tests.ps1
+          -WorkflowRevision $env:GITHUB_SHA
+
+      - name: Test image verifier
+        shell: pwsh
+        run: ./.github/tests/Verify-TotalRiskImage.Tests.ps1
+
+      # The snapshot carries the library, the API, and the two fast test projects but not the
+      # solution's Verification project, so every dotnet command targets the two test projects
+      # (which restore and build the library and the API transitively) rather than the .sln.
+      - name: Restore locked dependencies
+        run: |
+          dotnet restore src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj --locked-mode --configfile nuget.cwbi.config
+          dotnet restore src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj --locked-mode --configfile nuget.cwbi.config
+
+      - name: Build Release projects
+        run: |
+          dotnet build src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj --configuration Release --no-restore
+          dotnet build src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj --configuration Release --no-restore
+
+      - name: Run complete test suite
+        run: |
+          dotnet test src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj --configuration Release --no-build
+          dotnet test src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj --configuration Release --no-build
+
+      - name: Audit NuGet dependencies
+        shell: pwsh
+        run: |
+          . ./.github/scripts/CwbiNuGetAudit.ps1
+          foreach ($project in @('src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj', 'src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj')) {
+            $auditOutput = & dotnet list $project package --vulnerable --include-transitive --no-restore 2>&1
+            $auditOutput | Write-Host
+            if ($LASTEXITCODE -ne 0) {
+              throw 'NuGet vulnerability audit failed.'
+            }
+            Assert-CwbiNuGetAuditClean -AuditOutput @($auditOutput | ForEach-Object { [string]$_ })
+          }
+
+      - name: Resolve upstream source provenance
+        id: source-provenance
+        shell: bash
+        run: |
+          mapfile -t source_lines < <(git show -s --format=%B "$GITHUB_SHA" | grep -Ei '^[[:space:]]*source[[:space:]]+commit[[:space:]]*:' || true)
+          if [ "${#source_lines[@]}" -ne 1 ]; then
+            echo "Snapshot commit must contain exactly one Source commit: line." >&2
+            exit 1
+          fi
+          if [[ ! "${source_lines[0]}" =~ ^Source\ commit:\ ([0-9a-f]{40})$ ]]; then
+            echo "Snapshot Source commit line must contain exactly one full lowercase commit SHA." >&2
+            exit 1
+          fi
+          source_revision=${BASH_REMATCH[1]}
+          printf 'source_revision=%s\n' "$source_revision" >> "$GITHUB_OUTPUT"
+
+      - name: Build Release image
+        run: >-
+          docker build
+          --file Dockerfile
+          --tag "$LOCAL_IMAGE"
+          --build-arg "SOURCE_REPOSITORY=https://github.com/USACE-RMC/RMC-TotalRisk"
+          --build-arg "SOURCE_REVISION=${{ steps.source-provenance.outputs.source_revision }}"
+          --build-arg "SNAPSHOT_REVISION=$GITHUB_SHA"
+          .
+
+      - name: Verify deployment image
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_REVISION: ${{ steps.source-provenance.outputs.source_revision }}
+          EXPECTED_SNAPSHOT_REVISION: ${{ github.sha }}
+        run: >-
+          ./.github/scripts/Verify-TotalRiskImage.ps1
+          -ImageRef $env:LOCAL_IMAGE
+          -ExpectedSourceRevision $env:EXPECTED_SOURCE_REVISION
+          -ExpectedSnapshotRevision $env:EXPECTED_SNAPSHOT_REVISION
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          role-session-name: dst-total-risk-${{ github.run_id }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+
+      - name: Verify ECR repository
+        shell: pwsh
+        run: |
+          $repositoryJson = @(& aws ecr describe-repositories `
+            --repository-names $env:ECR_REPOSITORY `
+            --output json)
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to inspect the configured ECR repository.'
+          }
+          try {
+            $response = ($repositoryJson -join "`n") | ConvertFrom-Json -ErrorAction Stop
+          }
+          catch {
+            throw 'ECR repository response was not valid JSON.'
+          }
+          $repositories = @($response.repositories)
+          if ($repositories.Count -ne 1) {
+            throw 'ECR preflight requires exactly one repository result.'
+          }
+          $repository = $repositories[0]
+          if ([string]$repository.repositoryName -cne $env:ECR_REPOSITORY) {
+            throw 'ECR preflight returned the wrong repository.'
+          }
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          mask-password: "true"
+
+      - name: Publish commit and deployment tags
+        id: publish-image
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          image_uri="$ECR_REGISTRY/$ECR_REPOSITORY"
+          commit_tag="sha-$GITHUB_SHA"
+          candidate_tag="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker tag "$LOCAL_IMAGE" "$image_uri:$candidate_tag"
+          docker push "$image_uri:$candidate_tag"
+
+          candidate_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$candidate_tag" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          if [[ ! "$candidate_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Candidate tag did not resolve to a complete lowercase sha256 digest." >&2
+            exit 1
+          fi
+
+          existing_commit_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --filter tagStatus=TAGGED \
+            --query "imageDetails[?contains(imageTags, '$commit_tag')].imageDigest | [0]" \
+            --output text)"
+          if [ "$existing_commit_digest" != "None" ] && [ "$existing_commit_digest" != "$candidate_digest" ]; then
+            echo "Existing commit tag resolves to a different image digest; refusing to replace $commit_tag." >&2
+            exit 1
+          fi
+
+          if [ "$existing_commit_digest" = "None" ]; then
+            docker tag "$LOCAL_IMAGE" "$image_uri:$commit_tag"
+            docker push "$image_uri:$commit_tag"
+          fi
+
+          docker tag "$LOCAL_IMAGE" "$image_uri:$DEPLOYMENT_TAG"
+          docker push "$image_uri:$DEPLOYMENT_TAG"
+          {
+            echo "image_uri=$image_uri"
+            echo "commit_tag=$commit_tag"
+            echo "candidate_digest=$candidate_digest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify published image digest
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.publish-image.outputs.image_uri }}
+          COMMIT_TAG: ${{ steps.publish-image.outputs.commit_tag }}
+          CANDIDATE_DIGEST: ${{ steps.publish-image.outputs.candidate_digest }}
+        run: |
+          if [[ ! "$CANDIDATE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Candidate digest output is invalid." >&2
+            exit 1
+          fi
+          commit_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$COMMIT_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          deployment_digest="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$DEPLOYMENT_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          test "$commit_digest" = "$CANDIDATE_DIGEST"
+          test "$deployment_digest" = "$CANDIDATE_DIGEST"
+          echo "Published $IMAGE_URI:$COMMIT_TAG and $IMAGE_URI:$DEPLOYMENT_TAG at $commit_digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out of Amazon ECR
+        if: always()
+        run: docker logout ${{ steps.login-ecr.outputs.registry }}

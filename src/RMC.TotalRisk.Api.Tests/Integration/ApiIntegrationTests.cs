@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using RMC.TotalRisk.Api.DTOs;
 using RMC.TotalRisk.Api.Tests.Support;
@@ -66,6 +67,36 @@ public class ApiIntegrationTests
         StringAssert.Contains(info, "apiContractVersion");
         Assert.IsTrue(openApi.IsSuccessStatusCode);
         StringAssert.Contains(await openApi.Content.ReadAsStringAsync(), "risk-analyses");
+    }
+
+    /// <summary>
+    /// The deployed container runs in the Production environment under a path base behind a
+    /// TLS-terminating load balancer: the endpoints must answer under the prefix, over plain HTTP,
+    /// with no redirect, or the container's health probe never succeeds.
+    /// </summary>
+    [TestMethod]
+    public async Task Test_ProductionHostingUnderPathBase_ServesPlainHttpWithoutRedirect()
+    {
+        // Arrange
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("PathBase", "/total-risk");
+        });
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        // Act
+        var health = await client.GetAsync("/total-risk/health");
+        var detailed = await client.GetAsync("/total-risk/health/detailed");
+        var info = await client.GetAsync("/total-risk/api/info");
+
+        // Assert
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, health.StatusCode);
+        Assert.AreEqual("Healthy", await health.Content.ReadAsStringAsync());
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, detailed.StatusCode);
+        StringAssert.Contains(await detailed.Content.ReadAsStringAsync(), "healthy");
+        Assert.AreEqual(System.Net.HttpStatusCode.OK, info.StatusCode);
+        StringAssert.Contains(await info.Content.ReadAsStringAsync(), "RMC-TotalRisk API");
     }
 
     /// <summary>The example endpoint round-trips through compute successfully over HTTP.</summary>

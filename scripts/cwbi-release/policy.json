@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "allowedFiles": [
+    ".dockerignore",
+    ".gitattributes",
+    ".github/scripts/CwbiNuGetAudit.ps1",
+    ".github/scripts/Verify-TotalRiskImage.ps1",
+    ".github/tests/CwbiApiWorkflow.Tests.ps1",
+    ".github/tests/Verify-TotalRiskImage.Tests.ps1",
+    ".github/workflows/cwbi-build-push-api.yml",
+    "Directory.Build.props",
+    "Directory.Packages.props",
+    "Dockerfile",
+    "LICENSE",
+    "global.json",
+    "nuget.cwbi.config",
+    "src/RMC.TotalRisk.Verification/MSTestSettings.cs"
+  ],
+  "allowedDirectories": [
+    "local-feed/",
+    "src/RMC.TotalRisk/",
+    "src/RMC.TotalRisk.Api/",
+    "src/RMC.TotalRisk.Api.Tests/",
+    "src/RMC.TotalRisk.Tests/"
+  ],
+  "excludedPaths": [
+    "src/RMC.TotalRisk.Api/Properties/launchSettings.json",
+    "src/RMC.TotalRisk.Api/appsettings.Development.json"
+  ],
+  "requiredFiles": [
+    ".dockerignore",
+    ".gitattributes",
+    ".github/scripts/CwbiNuGetAudit.ps1",
+    ".github/scripts/Verify-TotalRiskImage.ps1",
+    ".github/tests/CwbiApiWorkflow.Tests.ps1",
+    ".github/tests/Verify-TotalRiskImage.Tests.ps1",
+    ".github/workflows/cwbi-build-push-api.yml",
+    "Directory.Build.props",
+    "Directory.Packages.props",
+    "Dockerfile",
+    "LICENSE",
+    "global.json",
+    "nuget.cwbi.config",
+    "src/RMC.TotalRisk/RMC.TotalRisk.csproj",
+    "src/RMC.TotalRisk/packages.lock.json",
+    "src/RMC.TotalRisk.Api/Program.cs",
+    "src/RMC.TotalRisk.Api/RMC.TotalRisk.Api.csproj",
+    "src/RMC.TotalRisk.Api/appsettings.json",
+    "src/RMC.TotalRisk.Api/packages.lock.json",
+    "src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj",
+    "src/RMC.TotalRisk.Api.Tests/packages.lock.json",
+    "src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj",
+    "src/RMC.TotalRisk.Tests/packages.lock.json",
+    "src/RMC.TotalRisk.Verification/MSTestSettings.cs"
+  ],
+  "secretScanExcludedFiles": [],
+  "secretBearingFileExtensions": [
+    ".cer",
+    ".crt",
+    ".der",
+    ".jks",
+    ".key",
+    ".keystore",
+    ".p12",
+    ".pem",
+    ".pfx"
+  ],
+  "secretBearingFileNames": [
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "id_rsa"
+  ],
+  "generatedOutputExclusion": "test_scenarios/**/csharp/output.json"
+}

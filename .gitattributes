@@ -1,0 +1,20 @@
+# Deliberately no line-ending rule. Every text file in this repository is stored with LF and
+# each developer's core.autocrlf setting governs their working tree; adding a `text` or `eol`
+# rule would make every file show as modified in existing checkouts. The CWBI release tooling
+# only needs this file to exist so that snapshot content is byte-deterministic (snapshots are
+# taken from committed blobs, never from a working tree).
+
+*.dll binary
+*.gif binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.nupkg binary
+*.pdf binary
+*.png binary
+*.snupkg binary
+*.tra binary
+*.xls binary
+*.xlsm binary
+*.xlsx binary
+*.zip binary

@@ -1,0 +1,29 @@
+# Build output and IDE state
+**/bin/
+**/obj/
+**/TestResults/
+.vs/
+.git/
+.github/
+
+# Nothing outside the two shipped projects and the shared build inputs is a build input
+docs/
+examples/
+scripts/
+src/RMC.TotalRisk.Tests/
+src/RMC.TotalRisk.Api.Tests/
+src/RMC.TotalRisk.Verification/
+*.md
+*.sln
+.gitattributes
+.gitignore
+
+# The root NuGet.config names a developer-machine feed; the image restores with nuget.cwbi.config
+NuGet.config
+
+# Developer-only settings never enter the image; the CWBI release policy also strips them from
+# the snapshot and the image verifier rejects any image that contains them
+**/appsettings.Development.json
+**/Properties/launchSettings.json
+**/*.user
+**/.env
