@@ -77,14 +77,18 @@ jobs:
         shell: pwsh
         run: |
           . ./.github/scripts/CwbiNuGetAudit.ps1
-          foreach ($project in @('src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj', 'src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj')) {
-            $auditOutput = & dotnet list $project package --vulnerable --include-transitive --no-restore 2>&1
-            $auditOutput | Write-Host
+          # Each shipped project is audited on its own (the command reports only the named
+          # project); the shared parser then requires a clean result from every one of them.
+          $auditOutput = @()
+          foreach ($project in @('src/RMC.TotalRisk/RMC.TotalRisk.csproj', 'src/RMC.TotalRisk.Api/RMC.TotalRisk.Api.csproj', 'src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj', 'src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj')) {
+            $projectOutput = & dotnet list $project package --vulnerable --include-transitive --no-restore 2>&1
+            $projectOutput | Write-Host
             if ($LASTEXITCODE -ne 0) {
               throw 'NuGet vulnerability audit failed.'
             }
-            Assert-CwbiNuGetAuditClean -AuditOutput @($auditOutput | ForEach-Object { [string]$_ })
+            $auditOutput += @($projectOutput | ForEach-Object { [string]$_ })
           }
+          Assert-CwbiNuGetAuditClean -AuditOutput @($auditOutput)
 
       - name: Resolve upstream source provenance
         id: source-provenance

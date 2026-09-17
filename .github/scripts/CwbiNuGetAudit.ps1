@@ -2,7 +2,10 @@ function Assert-CwbiNuGetAuditClean {
     [CmdletBinding()]
     param([Parameter(Mandatory)][AllowEmptyCollection()][AllowEmptyString()][string[]]$AuditOutput)
 
-    $expectedProjects = @('RMC-TotalRisk')
+    # `dotnet list <project> package --vulnerable` reports only the named project (its transitive
+    # PACKAGES are included, its referenced projects are not), so the release path audits each
+    # shipped project and hands the concatenated output here; every one of them must report clean.
+    $expectedProjects = @('RMC.TotalRisk', 'RMC.TotalRisk.Api', 'RMC.TotalRisk.Tests', 'RMC.TotalRisk.Api.Tests')
     $nonEmptyLines = @($AuditOutput | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($nonEmptyLines.Count -eq 0) {
         throw 'NuGet audit output is empty.'

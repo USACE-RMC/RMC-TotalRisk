@@ -155,7 +155,7 @@ function Assert-CwbiWorkflowContract {
     $auditRun = [string]$steps[$auditIndex].run
     foreach ($requiredFragment in @(
         '. ./.github/scripts/CwbiNuGetAudit.ps1',
-        "@('src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj', 'src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj')",
+        "@('src/RMC.TotalRisk/RMC.TotalRisk.csproj', 'src/RMC.TotalRisk.Api/RMC.TotalRisk.Api.csproj', 'src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj', 'src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj')",
         'dotnet list $project package --vulnerable --include-transitive --no-restore',
         'if ($LASTEXITCODE -ne 0)',
         'Assert-CwbiNuGetAuditClean -AuditOutput'

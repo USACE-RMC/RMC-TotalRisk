@@ -307,11 +307,18 @@ try {
     Assert-Condition ($firstImageTag -match "^dst-total-risk:cwbi-release-$($sourceCommit.Substring(0, 12))-[0-9a-f]{32}$") 'Run-unique Docker image tag has an unexpected format.'
     Assert-Condition ($firstImageTag -cne $secondImageTag) 'Two release runs for one source commit reused a Docker image tag.'
 
+    # The release path audits the four shipped projects one at a time and concatenates their output.
     $cleanNuGetAudit = @(
         '',
         'The following sources were used:',
         '   https://api.nuget.org/v3/index.json',
-        'The given project `RMC-TotalRisk` has no vulnerable packages given the current sources.',
+        'The given project `RMC.TotalRisk` has no vulnerable packages given the current sources.',
+        '',
+        'The following sources were used:',
+        '   https://api.nuget.org/v3/index.json',
+        'The given project `RMC.TotalRisk.Api` has no vulnerable packages given the current sources.',
+        'The given project `RMC.TotalRisk.Tests` has no vulnerable packages given the current sources.',
+        'The given project `RMC.TotalRisk.Api.Tests` has no vulnerable packages given the current sources.',
         ''
     )
     Assert-CwbiNuGetAuditClean -AuditOutput $cleanNuGetAudit
@@ -328,9 +335,17 @@ try {
         [pscustomobject]@{ Name = 'advisory source failure'; Output = @('Unable to load the service index for the package advisory source.') },
         [pscustomobject]@{ Name = 'no-project'; Output = @('The following sources were used:', '   https://api.nuget.org/v3/index.json') },
         [pscustomobject]@{ Name = 'unrecognized project'; Output = @('The given project `SomethingElse` has no vulnerable packages given the current sources.') },
+        [pscustomobject]@{ Name = 'missing project'; Output = @(
+                'The given project `RMC.TotalRisk` has no vulnerable packages given the current sources.',
+                'The given project `RMC.TotalRisk.Api` has no vulnerable packages given the current sources.',
+                'The given project `RMC.TotalRisk.Tests` has no vulnerable packages given the current sources.'
+            ) },
         [pscustomobject]@{ Name = 'duplicate project'; Output = @(
-                'The given project `RMC-TotalRisk` has no vulnerable packages given the current sources.',
-                'The given project `RMC-TotalRisk` has no vulnerable packages given the current sources.'
+                'The given project `RMC.TotalRisk` has no vulnerable packages given the current sources.',
+                'The given project `RMC.TotalRisk` has no vulnerable packages given the current sources.',
+                'The given project `RMC.TotalRisk.Api` has no vulnerable packages given the current sources.',
+                'The given project `RMC.TotalRisk.Tests` has no vulnerable packages given the current sources.',
+                'The given project `RMC.TotalRisk.Api.Tests` has no vulnerable packages given the current sources.'
             ) }
     )) {
         Assert-Throws -MessagePattern 'NuGet audit' -FailureMessage "NuGet $($invalidAudit.Name) output was accepted." -Action {

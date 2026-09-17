@@ -30,6 +30,10 @@ $releaseTestProjects = @(
     'src/RMC.TotalRisk.Tests/RMC.TotalRisk.Tests.csproj',
     'src/RMC.TotalRisk.Api.Tests/RMC.TotalRisk.Api.Tests.csproj'
 )
+$releaseAuditProjects = @(
+    'src/RMC.TotalRisk/RMC.TotalRisk.csproj',
+    'src/RMC.TotalRisk.Api/RMC.TotalRisk.Api.csproj'
+) + $releaseTestProjects
 if (-not $EvidenceDirectory) {
     $EvidenceDirectory = Join-Path (Split-Path -Parent $repositoryRoot) 'cwbi-release-evidence'
 }
@@ -155,15 +159,21 @@ try {
     Write-Host '[NuGet vulnerability audit]'
     Push-Location $verificationRoot
     try {
-        foreach ($testProject in $releaseTestProjects) {
-            $auditOutput = @(& dotnet list $testProject package --vulnerable --include-transitive --no-restore 2>&1)
+        # Each shipped project is audited on its own (the command reports only the named project);
+        # the shared parser then requires a clean result from every one of them.
+        $auditOutput = [System.Collections.Generic.List[string]]::new()
+        foreach ($auditProject in $releaseAuditProjects) {
+            $projectOutput = @(& dotnet list $auditProject package --vulnerable --include-transitive --no-restore 2>&1)
             $auditExitCode = $LASTEXITCODE
-            $auditOutput | Write-Host
+            $projectOutput | Write-Host
             if ($auditExitCode -ne 0) {
-                throw "NuGet vulnerability audit failed with exit code $auditExitCode."
+                throw "NuGet vulnerability audit of $auditProject failed with exit code $auditExitCode."
             }
-            Assert-CwbiNuGetAuditClean -AuditOutput @($auditOutput | ForEach-Object { [string]$_ })
+            foreach ($line in $projectOutput) {
+                $auditOutput.Add([string]$line)
+            }
         }
+        Assert-CwbiNuGetAuditClean -AuditOutput @($auditOutput)
     }
     finally {
         Pop-Location
