@@ -75,7 +75,12 @@ function Write-Utf8FixtureFile {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Content
     )
 
-    [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
+    # Fixture content comes from here-strings in this file, so it inherits this file's line
+    # endings. On a Windows checkout (core.autocrlf) that is CRLF, and `git archive` in the
+    # release publisher emits CRLF too. A shell shim starting with "#!/bin/sh<CR>" cannot be
+    # executed inside the container, so every fixture file is written with LF endings.
+    $normalized = $Content.Replace("`r`n", "`n").Replace("`r", "`n")
+    [System.IO.File]::WriteAllText($Path, $normalized, [System.Text.UTF8Encoding]::new($false))
 }
 
 function New-MetadataFixtureImage {
