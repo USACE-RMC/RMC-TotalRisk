@@ -52,7 +52,18 @@ prerelease package.
 `b2e6ea88…` bit-exactly under the packaged Release Numerics (assembly version string
 unchanged at 2.2.0.0; Numerics has no `#if DEBUG` code); `dotnet build` 0 warnings; fast suite
 **1,634/1,634** + Api **91/91** (+1) in Release; `validate-code-xml-docs.ps1` clean; all four
-release contract suites pass (Prepare, Publish, Workflow, Verify-Image under Docker).
+release contract suites pass (Prepare, Publish, Workflow, Verify-Image under Docker). **Full
+rehearsal of `Prepare-CwbiRelease.ps1`** in a throwaway clone (local `v2.0-development` at the
+branch head, empty orphan target — the first-publication shape): export + policy + secret scans,
+the four contract suites, locked restores, Release builds, both suites green on the exported
+tree, the four-project audit clean, the Docker image built and verified live (labels, non-root
+user, 8083, `/total-risk/health` → `Healthy`, detailed health JSON), root snapshot commit
+`1ff722b0…` with manifest SHA-256 `121c22a1…`. Two defects the rehearsal surfaced and the fixes
+that followed: (1) `git archive` under `core.autocrlf=true` exports CRLF, so the verifier
+fixtures' embedded `/bin/sh` shims died on their first line — the fixture writer now normalizes
+to LF (RasProcessingApi's own fix, taken verbatim); (2) `dotnet list <project> package
+--vulnerable` reports only the named project, so the gate now audits all four shipped projects
+and the shared parser requires a clean line from each.
 
 **Next:** merge `cwbi-release-prep` into `v2.0-development`, push, then run
 `pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1 -PrepareOnly` from a clean
