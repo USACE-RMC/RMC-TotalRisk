@@ -10,6 +10,7 @@ using RMC.TotalRisk.RiskFunctions;
 using RMC.TotalRisk.RiskFunctions.Responses;
 using RMC.TotalRisk.RiskFunctions.Responses.EventTrees;
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
+using RMC.TotalRisk.RiskFunctions.Responses.Trees.Support;
 
 namespace RMC.TotalRisk.Systems.Components
 {

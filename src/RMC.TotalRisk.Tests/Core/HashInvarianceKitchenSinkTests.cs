@@ -13,6 +13,8 @@ using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees;
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
 using RMC.TotalRisk.RiskFunctions.Transforms;
 using RMC.TotalRisk.Tests.RiskFunctions.Responses;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Nodes;
+using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees.Nodes;
 
 namespace RMC.TotalRisk.Tests.Core;
 

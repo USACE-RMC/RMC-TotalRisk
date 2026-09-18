@@ -12,6 +12,8 @@ using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.Core.Interfaces;
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
+using RMC.TotalRisk.RiskFunctions.Responses.Trees.Support;
+using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees.Support;
 
 namespace RMC.TotalRisk.RiskFunctions.Responses.FaultTrees
 {

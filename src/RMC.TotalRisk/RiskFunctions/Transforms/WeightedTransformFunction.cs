@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using RMC.TotalRisk.Core.Interfaces;
+using RMC.TotalRisk.RiskFunctions.Support;
 
 namespace RMC.TotalRisk.RiskFunctions.Transforms
 {

@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
+using RMC.TotalRisk.RiskFunctions.Responses.Trees.Support;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Nodes;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Support;
 
 namespace RMC.TotalRisk.RiskFunctions.Responses.EventTrees
 {

@@ -10,6 +10,8 @@ using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.Core.Interfaces;
 
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Nodes;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Support;
 namespace RMC.TotalRisk.RiskFunctions.Responses.EventTrees
 {
     /// <summary>

@@ -39,6 +39,8 @@ using RMC.TotalRisk.Core.Support;
 using RMC.TotalRisk.Analyses.Risk.Support;
 using RMC.TotalRisk.Analyses.LifeCycle;
 using RMC.TotalRisk.Analyses.Support;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Nodes;
+using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees.Nodes;
 
 namespace RMC.TotalRisk.Analyses.Risk
 {

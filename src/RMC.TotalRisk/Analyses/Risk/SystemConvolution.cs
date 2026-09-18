@@ -61,7 +61,7 @@ namespace RMC.TotalRisk.Analyses.Risk
         /// </summary>
         /// <param name="components">
         /// One weighted pair list per component — the exact recorded (mass, consequence) pairs of
-        /// one risk-type stream (<see cref="Results.Curve.CollectRecordedPairs"/>). Masses must be
+        /// one risk-type stream (<see cref="Results.Risk.Curve.CollectRecordedPairs"/>). Masses must be
         /// non-negative and consequences non-negative; each component's recorded mass may be less
         /// than one (a defective stream), and the shortfall becomes its zero-consequence atom.
         /// </param>

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Xml.Linq;
 using RMC.TotalRisk.Core;
+using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees.Nodes;
 
 namespace RMC.TotalRisk.RiskFunctions.Responses.FaultTrees
 {

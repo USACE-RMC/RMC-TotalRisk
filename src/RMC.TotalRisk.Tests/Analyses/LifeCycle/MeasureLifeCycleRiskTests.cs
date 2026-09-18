@@ -15,6 +15,7 @@ using RMC.TotalRisk.RiskFunctions.Responses;
 using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees;
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
 using RMC.TotalRisk.Systems.Components;
+using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees.Nodes;
 
 namespace RMC.TotalRisk.Tests.Analyses.LifeCycle;
 

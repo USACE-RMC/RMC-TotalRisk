@@ -16,6 +16,7 @@ using RMC.TotalRisk.RiskFunctions.Responses.EventTrees;
 using RMC.TotalRisk.RiskFunctions.Responses.Trees;
 using RMC.TotalRisk.Systems.Components;
 using RMC.TotalRisk.Systems.Components.Graph;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Nodes;
 
 namespace RMC.TotalRisk.Tests.Systems.Components.Graph;
 

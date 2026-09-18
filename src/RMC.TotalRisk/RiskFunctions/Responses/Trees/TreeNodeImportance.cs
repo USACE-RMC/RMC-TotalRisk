@@ -6,6 +6,9 @@ using Numerics.Sampling;
 using RMC.TotalRisk.Core;
 using RMC.TotalRisk.RiskFunctions.Responses.EventTrees;
 using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Nodes;
+using RMC.TotalRisk.RiskFunctions.Responses.EventTrees.Support;
+using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees.Support;
 
 namespace RMC.TotalRisk.RiskFunctions.Responses.Trees
 {

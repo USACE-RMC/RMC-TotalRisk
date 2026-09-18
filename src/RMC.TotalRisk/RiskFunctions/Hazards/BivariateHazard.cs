@@ -10,6 +10,7 @@ using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.Core.Interfaces;
 using RMC.TotalRisk.Results.Risk;
+using RMC.TotalRisk.RiskFunctions.Support;
 
 namespace RMC.TotalRisk.RiskFunctions.Hazards
 {
