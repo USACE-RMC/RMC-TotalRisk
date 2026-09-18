@@ -12,6 +12,7 @@ using RMC.TotalRisk.RiskFunctions.Consequences;
 using RMC.TotalRisk.RiskFunctions.Hazards;
 using RMC.TotalRisk.RiskFunctions.Responses;
 using RMC.TotalRisk.Systems.Components;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Verification.Analyses;
 

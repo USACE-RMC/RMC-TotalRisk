@@ -5,7 +5,7 @@ using System.Text;
 using Numerics.Sampling;
 using RMC.TotalRisk.Core.Enums;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// The ambient shared-epistemic-variable scope. While a scope is entered on the current

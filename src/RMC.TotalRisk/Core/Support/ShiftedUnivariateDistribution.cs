@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Numerics;
 using Numerics.Distributions;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// A delegating distribution wrapper evaluating an inner sampled distribution on a shifted

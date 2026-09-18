@@ -1,8 +1,9 @@
 using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RMC.TotalRisk.Core;
+using RMC.TotalRisk.Core.Support;
 
-namespace RMC.TotalRisk.Tests.Core;
+namespace RMC.TotalRisk.Tests.Core.Support;
 
 /// <summary>
 /// Unit tests for the given-data value-of-information estimator: exact hand-computable

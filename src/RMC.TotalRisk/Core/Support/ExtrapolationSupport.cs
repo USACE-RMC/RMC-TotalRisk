@@ -1,7 +1,7 @@
 using Numerics.Data;
 using RMC.TotalRisk.Core.Enums;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// Maps the model-level <see cref="ExtrapolationPolicy"/> onto the Numerics lookup surface.

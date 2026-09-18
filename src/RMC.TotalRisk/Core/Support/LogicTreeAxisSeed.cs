@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// The raw material of one discovered logic-tree axis: an epistemic-mixture composite's

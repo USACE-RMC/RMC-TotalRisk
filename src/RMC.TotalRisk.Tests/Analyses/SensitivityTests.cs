@@ -17,6 +17,7 @@ using RMC.TotalRisk.RiskFunctions.Responses;
 using RMC.TotalRisk.RiskFunctions.Transforms;
 using RMC.TotalRisk.Systems.Components;
 using RMC.TotalRisk.Systems.Components.Graph;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Tests.Analyses;
 

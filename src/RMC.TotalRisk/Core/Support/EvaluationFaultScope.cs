@@ -1,6 +1,6 @@
 using System;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// A per-thread first-fault slot that preserves an evaluation diagnostic across the adaptive

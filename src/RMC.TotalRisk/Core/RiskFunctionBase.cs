@@ -6,6 +6,7 @@ using Numerics.Distributions;
 using Numerics.Sampling;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.Core.Interfaces;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Core
 {

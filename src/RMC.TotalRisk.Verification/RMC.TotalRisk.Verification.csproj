@@ -29,7 +29,7 @@
 
   <ItemGroup>
     <!-- Computational scenarios live beside their source-facing fixtures but run only here. -->
-    <Compile Include="..\RMC.TotalRisk.Tests\Analyses\SamplerSeedMapTests.cs" Link="Analyses\SamplerSeedMapTests.cs" />
+    <Compile Include="..\RMC.TotalRisk.Tests\Core\SamplerSeedMapTests.cs" Link="Core\SamplerSeedMapTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

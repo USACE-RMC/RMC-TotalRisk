@@ -1,6 +1,6 @@
 using System;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// The given-data value-of-information estimator: weighted equal-frequency conditioning of a

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Numerics.Functions;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// A delegating univariate-function wrapper enforcing the

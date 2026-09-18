@@ -21,7 +21,7 @@
          Applies [assembly: Parallelize(...)] to this assembly too. -->
     <Compile Include="..\RMC.TotalRisk.Verification\MSTestSettings.cs" Link="MSTestSettings.cs" />
     <!-- Computational seed-map scenarios execute in Verification. -->
-    <Compile Remove="Analyses\SamplerSeedMapTests.cs" />
+    <Compile Remove="Core\SamplerSeedMapTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

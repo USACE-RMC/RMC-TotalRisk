@@ -2,7 +2,7 @@ using System;
 using Numerics;
 using RMC.TotalRisk.Core.Enums;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// The shared construction constants for the automatic dependency modes' equicorrelated

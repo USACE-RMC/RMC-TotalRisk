@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Core
 {

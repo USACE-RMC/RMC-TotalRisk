@@ -4,8 +4,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Numerics.Sampling;
 using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
+using RMC.TotalRisk.Core.Support;
 
-namespace RMC.TotalRisk.Tests.Core;
+namespace RMC.TotalRisk.Tests.Core.Support;
 
 /// <summary>
 /// Unit tests for <see cref="EpistemicSharingScope"/> — the ambient shared-epistemic-variable

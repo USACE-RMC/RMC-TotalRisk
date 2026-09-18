@@ -8,6 +8,7 @@ using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.RiskFunctions.Consequences;
 using RMC.TotalRisk.Tests.Core;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Tests.RiskFunctions.Consequences;
 

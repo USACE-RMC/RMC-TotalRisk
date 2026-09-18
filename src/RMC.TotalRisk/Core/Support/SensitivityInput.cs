@@ -1,6 +1,6 @@
 using System;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// One labeled knowledge-input column of the sensitivity engine: a display label, a

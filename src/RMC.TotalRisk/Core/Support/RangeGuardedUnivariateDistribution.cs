@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Numerics.Distributions;
 
-namespace RMC.TotalRisk.Core
+namespace RMC.TotalRisk.Core.Support
 {
     /// <summary>
     /// A delegating distribution wrapper enforcing the

@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Numerics.Data;
 using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Tests.Core.Enums;
 

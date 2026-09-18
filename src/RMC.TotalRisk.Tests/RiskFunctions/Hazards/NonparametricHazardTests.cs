@@ -9,6 +9,7 @@ using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.RiskFunctions.Hazards;
 using RMC.TotalRisk.Tests.Core;
+using RMC.TotalRisk.Core.Support;
 
 namespace RMC.TotalRisk.Tests.RiskFunctions.Hazards;
 

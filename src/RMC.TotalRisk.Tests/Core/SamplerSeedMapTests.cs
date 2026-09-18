@@ -10,7 +10,7 @@ using RMC.TotalRisk.RiskFunctions.Hazards;
 using RMC.TotalRisk.RiskFunctions.Responses;
 using RMC.TotalRisk.Systems.Components;
 
-namespace RMC.TotalRisk.Tests.Analyses;
+namespace RMC.TotalRisk.Tests.Core;
 
 /// <summary>
 /// Unit tests for the seed-stable perturbation mode
