@@ -1,6 +1,6 @@
 using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.CostBenefit;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.Results;
 

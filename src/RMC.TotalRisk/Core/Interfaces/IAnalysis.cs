@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using Numerics.Utilities;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Support;
 
 namespace RMC.TotalRisk.Core.Interfaces
 {

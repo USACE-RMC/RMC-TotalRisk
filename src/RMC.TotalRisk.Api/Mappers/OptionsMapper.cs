@@ -1,4 +1,4 @@
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Api.DTOs;
 using RMC.TotalRisk.Core.Enums;
 

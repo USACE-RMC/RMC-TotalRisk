@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using Numerics.Distributions;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Systems.Components;
 

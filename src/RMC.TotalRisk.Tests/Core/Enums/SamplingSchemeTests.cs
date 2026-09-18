@@ -31,6 +31,6 @@ public class SamplingSchemeTests
     public void Test_OptionsDefault_IsLatinHypercube()
     {
         // Assert
-        Assert.AreEqual(SamplingScheme.LatinHypercube, new RMC.TotalRisk.Analyses.RiskAnalysisOptions().SamplingScheme);
+        Assert.AreEqual(SamplingScheme.LatinHypercube, new RMC.TotalRisk.Analyses.Risk.RiskAnalysisOptions().SamplingScheme);
     }
 }

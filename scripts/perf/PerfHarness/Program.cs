@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Numerics.Data;
 using Numerics.Distributions;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.RiskFunctions.Consequences;
 using RMC.TotalRisk.RiskFunctions.Hazards;

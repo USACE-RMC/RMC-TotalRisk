@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Api.Configuration;
 using RMC.TotalRisk.Api.DTOs;
 using RMC.TotalRisk.Api.Mappers;

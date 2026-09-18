@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.CostBenefit;
 using RMC.TotalRisk.Core.Enums;
 
 namespace RMC.TotalRisk.Results

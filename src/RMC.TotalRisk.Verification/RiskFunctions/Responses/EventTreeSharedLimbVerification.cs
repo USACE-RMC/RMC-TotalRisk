@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Numerics.Data;
 using Numerics.Distributions;
 using Numerics.Sampling;
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Core;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.RiskFunctions.Consequences;

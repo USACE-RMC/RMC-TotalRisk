@@ -1068,7 +1068,7 @@ public class DeterioratingResponseTests
     public void Test_Run_CarriesEvaluationAgeOntoRunClones()
     {
         // Arrange — one authored model, run at age zero and at age fifty.
-        static RMC.TotalRisk.Analyses.RiskAnalysis Build(double age)
+        static RMC.TotalRisk.Analyses.Risk.RiskAnalysis Build(double age)
         {
             var wrapper = new DeterioratingResponse
             {
@@ -1112,7 +1112,7 @@ public class DeterioratingResponseTests
                         true, SortOrder.Ascending, false, SortOrder.None,
                         UnivariateDistributionType.Deterministic),
                 }));
-            return new RMC.TotalRisk.Analyses.RiskAnalysis(new[] { component })
+            return new RMC.TotalRisk.Analyses.Risk.RiskAnalysis(new[] { component })
             {
                 SpecifiedConsequence = "Damages",
                 ConsequenceUnit = "$",
