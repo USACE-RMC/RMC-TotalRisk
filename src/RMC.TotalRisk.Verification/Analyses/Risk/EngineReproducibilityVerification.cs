@@ -429,8 +429,8 @@ public class EngineReproducibilityVerification
                 BitConverter.DoubleToInt64Bits(grownRealization.Fail.TotalProbability),
                 $"Realization {i}: the component failure probability moved when an unrelated component was added.");
         }
-        var baselineMean = new RMC.TotalRisk.Results.SystemRiskResults(alone.MeanRiskResults!).ComponentResults[0];
-        var grownMean = new RMC.TotalRisk.Results.SystemRiskResults(grown.MeanRiskResults!).ComponentResults[0];
+        var baselineMean = new RMC.TotalRisk.Results.Risk.SystemRiskResults(alone.MeanRiskResults!).ComponentResults[0];
+        var grownMean = new RMC.TotalRisk.Results.Risk.SystemRiskResults(grown.MeanRiskResults!).ComponentResults[0];
         Assert.AreEqual(BitConverter.DoubleToInt64Bits(baselineMean.Total.Mean),
             BitConverter.DoubleToInt64Bits(grownMean.Total.Mean),
             "The mean-pass component total mean moved when an unrelated component was added.");

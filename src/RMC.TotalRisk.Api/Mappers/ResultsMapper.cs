@@ -1,6 +1,6 @@
 using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Api.DTOs;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 
 namespace RMC.TotalRisk.Api.Mappers
 {

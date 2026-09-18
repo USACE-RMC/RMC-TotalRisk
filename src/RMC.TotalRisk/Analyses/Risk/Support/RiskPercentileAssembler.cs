@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Numerics.Data.Statistics;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 
 namespace RMC.TotalRisk.Analyses.Risk.Support
 {

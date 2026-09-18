@@ -331,7 +331,7 @@ public class ClosedFormFunctionsVerification
     /// </summary>
     /// <param name="analysis">The estimated ensemble analysis.</param>
     /// <param name="selector">The per-realization scalar.</param>
-    private static (double GrandMean, double SigmaK) EnsembleGrand(RiskAnalysis analysis, Func<Results.SystemRiskResults, double> selector)
+    private static (double GrandMean, double SigmaK) EnsembleGrand(RiskAnalysis analysis, Func<Results.Risk.SystemRiskResults, double> selector)
     {
         var values = new double[analysis.RiskResults!.Count];
         for (int i = 0; i < values.Length; i++) values[i] = selector(analysis.RiskResults[i]!);

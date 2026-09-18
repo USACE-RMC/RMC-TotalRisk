@@ -175,7 +175,7 @@ public class CombinationMethodConsistencyVerification
 
     /// <summary>Runs one configuration mean-only and returns its summary.</summary>
     /// <param name="analysis">The analysis to run.</param>
-    private static Results.SystemRiskResults Run(RiskAnalysis analysis)
+    private static Results.Risk.SystemRiskResults Run(RiskAnalysis analysis)
     {
         analysis.RunAsync().GetAwaiter().GetResult();
         Assert.IsTrue(analysis.IsEstimated, $"{analysis.Name} must estimate.");

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.CostBenefit;
+using RMC.TotalRisk.Results.LifeCycle;
+using RMC.TotalRisk.Results.Risk;
 using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Analyses.CostBenefit;
 

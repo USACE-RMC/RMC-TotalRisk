@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Numerics.Data.Statistics;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 using RMC.TotalRisk.Analyses.Risk;
 
 namespace RMC.TotalRisk.Analyses.CostBenefit.Support

@@ -10,7 +10,7 @@ using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.RiskFunctions.Consequences;
 using RMC.TotalRisk.RiskFunctions.Hazards;
 using RMC.TotalRisk.RiskFunctions.Responses;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 using RMC.TotalRisk.Systems.Components;
 
 namespace RMC.TotalRisk.Verification.Analyses.Risk;

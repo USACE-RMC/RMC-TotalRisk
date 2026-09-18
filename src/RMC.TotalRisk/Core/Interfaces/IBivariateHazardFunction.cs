@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Numerics.Distributions;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 
 namespace RMC.TotalRisk.Core.Interfaces
 {

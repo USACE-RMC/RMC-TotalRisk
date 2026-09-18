@@ -319,7 +319,7 @@ public class ExactLecTailVerification
     /// <summary>Runs an analysis and returns its mean Fail curve.</summary>
     /// <param name="analysis">The analysis to run.</param>
     /// <returns>The mean-only Fail curve.</returns>
-    private static RMC.TotalRisk.Results.Curve RunAndReturnFail(RiskAnalysis analysis)
+    private static RMC.TotalRisk.Results.Risk.Curve RunAndReturnFail(RiskAnalysis analysis)
     {
         analysis.RunAsync().GetAwaiter().GetResult();
         Assert.IsTrue(analysis.IsEstimated);

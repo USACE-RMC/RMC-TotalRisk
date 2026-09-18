@@ -7,7 +7,8 @@ using RMC.TotalRisk.Analyses.CostBenefit;
 using RMC.TotalRisk.Analyses.CostBenefit.Support;
 using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.CostBenefit;
+using RMC.TotalRisk.Results.Risk;
 using RMC.TotalRisk.RiskFunctions.Responses;
 using RMC.TotalRisk.Systems.Components;
 

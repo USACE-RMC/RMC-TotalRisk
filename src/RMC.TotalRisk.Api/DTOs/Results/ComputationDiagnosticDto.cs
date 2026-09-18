@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 
 namespace RMC.TotalRisk.Api.DTOs
 {

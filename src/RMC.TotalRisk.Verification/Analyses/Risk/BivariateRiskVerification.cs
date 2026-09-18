@@ -244,14 +244,14 @@ public class BivariateRiskVerification
         adaptiveComponent.SetupSamplers(100, 12345, RMC.TotalRisk.Core.Enums.SamplingScheme.LatinHypercube);
         var adaptiveSampled = adaptiveComponent.Sample(-1);
         double sliceLevel = adaptiveSampled.Hazard.InverseCDF(0.5d);
-        double adaptiveSlice = adaptiveSampled.ComputeRisk(0.5d, sliceLevel, new RMC.TotalRisk.Results.RiskComputeFlags(),
-            new RMC.TotalRisk.Results.ComponentRealization(adaptiveSampled.FailureModeCount)).ProbabilityOfFailure;
+        double adaptiveSlice = adaptiveSampled.ComputeRisk(0.5d, sliceLevel, new RMC.TotalRisk.Results.Risk.RiskComputeFlags(),
+            new RMC.TotalRisk.Results.Risk.ComponentRealization(adaptiveSampled.FailureModeCount)).ProbabilityOfFailure;
 
         var fixedComponent = BivariateOracleFixtures.JointComponent(1000, BivariateOracleFixtures.DegeneratePrimary(0.8d));
         fixedComponent.SetupSamplers(100, 12345, RMC.TotalRisk.Core.Enums.SamplingScheme.LatinHypercube);
         var fixedSampled = fixedComponent.SampleWithConditionalBins(1000);
-        double fixedSlice = fixedSampled.ComputeRisk(0.5d, sliceLevel, new RMC.TotalRisk.Results.RiskComputeFlags(),
-            new RMC.TotalRisk.Results.ComponentRealization(fixedSampled.FailureModeCount)).ProbabilityOfFailure;
+        double fixedSlice = fixedSampled.ComputeRisk(0.5d, sliceLevel, new RMC.TotalRisk.Results.Risk.RiskComputeFlags(),
+            new RMC.TotalRisk.Results.Risk.ComponentRealization(fixedSampled.FailureModeCount)).ProbabilityOfFailure;
 
         // Assert — the adaptive figures (measured 3.7e-6 relative full-run, 5.3e-12 per
         // slice; asserted with documented headroom), and the instrument's historical figure.

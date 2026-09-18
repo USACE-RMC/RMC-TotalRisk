@@ -2,7 +2,7 @@ using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RMC.TotalRisk.Analyses.CostBenefit.Support;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.CostBenefit;
 
 namespace RMC.TotalRisk.Tests.Analyses.CostBenefit.Support;
 

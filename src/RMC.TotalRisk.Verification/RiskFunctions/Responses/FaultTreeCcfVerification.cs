@@ -5,7 +5,7 @@ using Numerics.Data;
 using Numerics.Distributions;
 using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Core.Enums;
-using RMC.TotalRisk.Results;
+using RMC.TotalRisk.Results.Risk;
 using RMC.TotalRisk.RiskFunctions.Consequences;
 using RMC.TotalRisk.RiskFunctions.Hazards;
 using RMC.TotalRisk.RiskFunctions.Responses.FaultTrees;

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Numerics.Sampling;
-using RMC.TotalRisk.Results;
 
 namespace RMC.TotalRisk.Analyses.Risk.Support
 {
