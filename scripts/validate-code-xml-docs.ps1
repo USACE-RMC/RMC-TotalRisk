@@ -94,7 +94,7 @@ if ($sourceFiles.Count -gt 0) {
             Add-Failure "${relative}:$lineNumber imports the bare root namespace RMC.TotalRisk; use the concrete namespace instead."
         }
         elseif ($retiredModelsNamespace.IsMatch($line)) {
-            Add-Failure "${relative}:$lineNumber uses the retired RMC.TotalRisk.Models namespace; the v0.10 layout is Core / Core.Enums / Core.Interfaces / RiskFunctions.* / Systems.* / Analyses / Results."
+            Add-Failure "${relative}:$lineNumber uses the retired RMC.TotalRisk.Models namespace; the v0.25 layout is Core[.Support/.Enums/.Interfaces] / RiskFunctions.* / Systems.* / Analyses.{Risk,CostBenefit,LifeCycle,Support} / Results.{Risk,CostBenefit,LifeCycle,Support}."
         }
         elseif ($legacyFlatNamespace.IsMatch($line)) {
             Add-Failure "${relative}:$lineNumber references the legacy flat TotalRisk namespace; porting must rename all namespaces to RMC.TotalRisk.*."
@@ -114,6 +114,54 @@ if ($sourceFiles.Count -gt 0) {
         elseif ($cultureLessG17.IsMatch($line)) {
             Add-Failure "${relative}:$lineNumber formats G17 without CultureInfo.InvariantCulture; use ToString(""G17"", CultureInfo.InvariantCulture)."
         }
+    }
+}
+
+# Folders mirror namespaces exactly: every folder is a namespace segment, so a file's declared
+# namespace must equal its project's root namespace plus its folder path. The Api projects are
+# excluded — the Api DTO folders deliberately flatten into RMC.TotalRisk.Api.DTOs.
+$mirrorRoots = [ordered]@{
+    "src/RMC.TotalRisk"              = "RMC.TotalRisk"
+    "src/RMC.TotalRisk.Tests"        = "RMC.TotalRisk.Tests"
+    "src/RMC.TotalRisk.Verification" = "RMC.TotalRisk.Verification"
+}
+$namespaceDeclaration = [regex]'^\s*namespace\s+(?<Name>[A-Za-z0-9_.]+)'
+foreach ($file in $sourceFiles) {
+    $relative = Get-RelativePath $file.FullName
+    $rootPrefix = $null
+    foreach ($key in $mirrorRoots.Keys) {
+        if ($relative.StartsWith("$key/", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $rootPrefix = $key
+            break
+        }
+    }
+    if ($null -eq $rootPrefix) {
+        continue
+    }
+    $relativeDir = [System.IO.Path]::GetDirectoryName($relative.Substring($rootPrefix.Length + 1))
+    if ($null -ne $relativeDir) {
+        $relativeDir = $relativeDir.Replace("\", "/")
+    }
+    if ($relativeDir -eq "Properties") {
+        continue
+    }
+    $expected = $mirrorRoots[$rootPrefix]
+    if ($relativeDir) {
+        $expected = "$expected." + ($relativeDir -replace "/", ".")
+    }
+    $declared = $null
+    foreach ($line in [System.IO.File]::ReadLines($file.FullName)) {
+        $m = $namespaceDeclaration.Match($line)
+        if ($m.Success) {
+            $declared = $m.Groups["Name"].Value
+            break
+        }
+    }
+    if ($null -eq $declared) {
+        continue # assembly-attribute-only files (AssemblyInfo, MSTestSettings)
+    }
+    if ($declared -ne $expected) {
+        Add-Failure "${relative}: declares namespace '$declared' but folders mirror namespaces exactly; expected '$expected'."
     }
 }
 
@@ -274,6 +322,9 @@ if (-not $SkipBuild) {
             continue
         }
 
+        # --no-incremental is load-bearing: an incremental enforced build can consider the
+        # docs-off outputs up to date, skip compilation entirely, and silently pass a tree
+        # carrying CS1574 errors. The documentation gate must always recompile.
         $args = @(
             "build",
             $projectPath,
@@ -281,6 +332,7 @@ if (-not $SkipBuild) {
             $Configuration,
             "--no-restore",
             "--no-dependencies",
+            "--no-incremental",
             "-p:EnforceXmlDocumentation=true",
             "-p:UseSharedCompilation=false",
             "-v:minimal"

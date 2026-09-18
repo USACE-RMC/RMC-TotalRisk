@@ -2,7 +2,22 @@
 
 > Living architectural specification for `RMC.TotalRisk.dll` — the headless .NET 10 compute library at the heart of the v1.1.0 modernization. **Authoritative home (since 2026-07-20): `docs/requirements/` in the RMC-TotalRisk repo**; the phased plan implementing this spec is [../ROADMAP.md](../ROADMAP.md). The copy at the `C:\GIT\RMC-TotalRisk-Dev` root is frozen with a pointer here, and legacy porting-source paths referenced below (e.g., `RMC-TotalRisk/RMC.TotalRisk.IO/...`) live in that Dev repo. The locked sections are the contract every cluster-port PR references.
 
-**Status**: 2026-08-07 — **v0.24** (Phase 11 bivariate capability implemented and verified). The
+**Status**: 2026-09-18 — **v0.25** (folder/namespace reorganization). §3 is rewritten to the
+domain-organized layout: `Analyses` and `Results` split into `Risk` / `CostBenefit` /
+`LifeCycle` domains, every concern gains a `Support` folder for its internal machinery, the
+tree responses gain the long-sketched `Nodes` folders, and `Core` separates its public kernel
+from internal adapters under `Core/Support`. Folders mirror namespaces exactly — the v0.10
+invariant is kept and now extends through `Support`/`Nodes` segments, reversing only v0.10's
+"no `Support` folders" rule. The enum/interface centralization is re-scoped: cross-cutting
+kernel enums/interfaces stay in `Core/Enums`/`Core/Interfaces` (the `ResourceSeverity` enum
+moved to its own file there per the one-enum-per-file rule), while cluster-local ones live
+with their cluster (the standing reality). Zero types were renamed and no serialized attribute
+moved, so `ToXElement()` output, canonical hashes, and Monte Carlo seed streams are
+bit-identical across the move — the fast suite (1,634 + 91), the verification inventory, and
+all eight perf byte gates reproduce their pins bit-exactly. The test projects mirror the new
+tree; the graph-element and cluster folders are unchanged.
+
+Prior status — 2026-08-07 — **v0.24** (Phase 11 bivariate capability implemented and verified). The
 complete copula-based bivariate surface is landed per the ratified
 [BIVARIATE_RISK_DESIGN.md](BIVARIATE_RISK_DESIGN.md): ONE hazard type (`BivariateHazard` with
 Id-linked univariate marginals and a fixed-parameter Numerics copula defaulting to Independence —
@@ -230,146 +245,162 @@ The headless constraints, and the discipline calls each implies:
 
 ## 3. Solution & folder layout
 
-Folders mirror namespaces exactly; there are no types in the bare `RMC.TotalRisk` root namespace and no `Support` folders. Final namespace map under root namespace `RMC.TotalRisk` (v0.10):
+Folders mirror namespaces exactly — every folder adds a namespace segment, `Support/` and
+`Nodes/` included — and there are no types in the bare `RMC.TotalRisk` root namespace. A
+`Support` folder holds a concern's internal machinery (plus, in `Analyses/Support`, the shared
+public analysis base types); a `Nodes` folder holds a tree's node types. **Cross-cutting kernel
+enums live in `Core/Enums` and cross-cutting kernel interfaces in `Core/Interfaces`**, one type
+per file; cluster-local enums and interfaces (`TreeLinkMode`, `TreeDeletePolicy`,
+`ProbabilitySourceKind`, `FaultTreeGateType`, `IBranchingResponseFunction`, and the internal
+tree-compilation contracts) live with their cluster. Namespace map under root namespace
+`RMC.TotalRisk` (v0.25):
 
 ```
 src/RMC.TotalRisk/
-├── Core/                                   (v0.10 — the kernel; replaces Models/Support/)
-│   ├── RiskFunctionBase.cs                 (INPC scaffolding + label backing + CanonicalHash() pipeline +
-│   │                                        SetupSampler/_percentiles sampler machinery)
-│   ├── CanonicalContentHasher.cs           (SHA-256 over canonicalized XML; adapted from Hydrologics)
-│   ├── CanonicalizationRules.cs            (audited strip rules — static ModelRules: Name/Description/Guid/positions/units)
-│   ├── ByteArrayComparer.cs                (lexicographic comparer for canonical-hash sorting)
-│   ├── SeedHelpers.cs                      (HashCombine: PRNGSeed × component hash × occurrence)
-│   ├── SerializationUtilities.cs           (G17/InvariantCulture format + null-safe parse helpers)
-│   ├── FunctionHelpers.cs                  (ForceMonotonic; GenerateSeedFromObject dropped)
-│   ├── TabularUncertainty.cs               (shared co-monotonic tabular percentile machinery)
-│   ├── ParametricPosterior.cs              (shared bootstrap / imported-posterior machinery)
-│   ├── Enums/                              (v0.10 — EVERY enum, one per file)
-│   │   ├── SamplingScheme.cs               (MonteCarlo, LatinHypercube, LatinHypercubeMedian)
-│   │   ├── FunctionUncertainty.cs          (tabular hazard uncertainty axis)
-│   │   ├── FailureModeMethod.cs            (JointFailures, CompetingFailures, CommonCauseFailures, MutuallyExclusive)
-│   │   ├── JointConsequenceType.cs         (Additive, Average, Maximum, Minimum — legacy v1.0 name)
-│   │   ├── DependencyType.cs               (Independent, PerfectlyPositive, PerfectlyNegative, CorrelationMatrix)
-│   │   ├── RiskType.cs                     (Excess, Background, Total, Fail, NonFail — legacy v1.0 name)
-│   │   ├── HazardDimension.cs              (Primary, Secondary — bivariate port reservation)
-│   │   ├── HazardFunctionType.cs           (v0.10 runtime discriminators — NEVER serialized)
-│   │   ├── TransformFunctionType.cs
-│   │   ├── ResponseFunctionType.cs
-│   │   ├── ConsequenceFunctionType.cs
-│   │   ├── RiskElementType.cs              (Hazard, Transform, Response, Consequence)
-│   │   ├── RiskAnalysisMode.cs             (Risk, Reliability — reliability is a mode, not a type)
-│   │   └── SystemRiskType.cs               (AdditiveRiskMethod, JointRiskMethod — Phase 4)
-│   └── Interfaces/                         (v0.10 — EVERY interface)
-│       ├── IRiskFunction.cs                (THE kernel contract: INPC + Name/Description + axis labels +
-│       │                                    IsDeterministic + SamplingDimensions + SetupSampler +
-│       │                                    ComputeUncertaintyResults + Validate + ToXElement + CanonicalHash)
-│       ├── IHazardFunction.cs
-│       ├── IUnivariateHazardFunction.cs    (marker; sampling returns IUnivariateDistribution)
-│       ├── IBivariateHazardFunction.cs     (Id-linked MarginalX/MarginalY, copula, bins,
-│       │                                    SampleBivariate engine seam, SampleConditionalYGivenX diagnostic)
-│       ├── IBivariateTransformFunction.cs  (two-way table: Evaluate(x, y) + CreateInterpolator)
-│       ├── IBivariateResponseFunction.cs   (joint surface + collapse; SurfaceProbability + CreateInterpolator)
-│       ├── IBivariateConsequenceFunction.cs
-│       ├── ITransformFunction.cs
-│       ├── IResponseFunction.cs
-│       ├── IConsequenceFunction.cs
-│       ├── IRiskElement.cs                 (the risk-graph node contract; Hydrologics IBasinElement mirror)
-│       ├── IRiskElementNameAuthority.cs
-│       └── IAnalysis.cs                    (Phase 4; mirrors BestFit IAnalysis)
-├── RiskFunctions/
-│   ├── RiskFunctionFactory.cs              (closed switch on the serialized element name)
-│   ├── Hazards/
-│   │   ├── HazardFunctionBase.cs
-│   │   ├── UnivariateHazardBase.cs
-│   │   ├── WeightedHazardFunction.cs
-│   │   ├── TabularHazard.cs
-│   │   ├── ParametricUnivariateHazard.cs   (renamed from ParametricHazard)
-│   │   ├── NonparametricHazard.cs          (Phase 7)
-│   │   ├── RFAHazard.cs                    (external-imports phase)
-│   │   ├── CompositeHazard.cs              (Phase 9+)
-│   │   └── BivariateHazard.cs              (Id-linked univariate marginals + fixed-parameter copula;
-│   │                                        the v0.5 BestFit bivariate/tabular import types moved to
-│   │                                        the external-imports phase)
-│   ├── Transforms/
-│   │   ├── TransformFunctionBase.cs
-│   │   ├── WeightedTransformFunction.cs
-│   │   ├── TabularTransform.cs
-│   │   ├── LinearTransform.cs              (Phase 7)
-│   │   ├── PowerTransform.cs               (Phase 7)
-│   │   ├── CompositeTransform.cs           (weighted average / mixture of transforms)
-│   │   ├── BivariateTransform.cs           (deterministic two-way table z = f(x, y) on Bilinear)
-│   │   └── BestFitTransform.cs             (external-imports phase: SegmentedPowerFunction + posterior)
-│   ├── Responses/
-│   │   ├── ResponseFunctionBase.cs
-│   │   ├── WeightedResponseFunction.cs
-│   │   ├── TabularResponse.cs
-│   │   ├── ParametricResponse.cs
-│   │   ├── NonFailResponse.cs
-│   │   ├── BivariateResponse.cs            (Phase 11; see section 6.3)
-│   │   ├── CompositeResponse.cs
-│   │   ├── Trees/                          (common sources/references/branch results, compilation support, node importance)
-│   │   ├── EventTrees/                     (Phase 10A)
-│   │   │   ├── EventTreeResponse.cs
-│   │   │   └── Nodes/                      (initiating, chance, remainder, independent link)
-│   │   └── FaultTrees/                     (Phase 10B — tree, authoring partial, occurrence plan, ROBDD kernel, cut sets)
-│   │       ├── FaultTreeResponse.cs
-│   │       └── Nodes/                      (gate, basic event, house event, transfer)
-│   └── Consequences/
-│       ├── ConsequenceFunctionBase.cs
-│       ├── WeightedConsequenceFunction.cs
-│       ├── TabularConsequence.cs
-│       ├── ParametricConsequence.cs        (power form per USACE ER 1110-2-1156)
-│       ├── CompositeConsequence.cs
-│       ├── BivariateConsequence.cs         (deterministic two-way table on Bilinear)
-│       ├── LifeSimConsequence.cs           (external-imports phase)
-│       └── LifeSimResult.cs                (external-imports phase)
-├── Systems/                                (v0.10 — the system being analyzed; the namespace root is
-│   └── Components/                          reserved for a future multi-component SystemModel)
-│       ├── SystemComponent.cs
-│       ├── FailureMode.cs
-│       ├── ResponseStage.cs
-│       └── Graph/
-│           ├── RiskElementBase.cs
-│           ├── HazardElement.cs
-│           ├── TransformElement.cs
-│           ├── ResponseElement.cs
-│           ├── ConsequenceElement.cs
-│           ├── RiskConnection.cs
-│           ├── ComponentGraph.cs
-│           ├── RiskElementFactory.cs
-│           ├── RiskElementResolver.cs
-│           └── HazardSourceOption.cs
-├── Analyses/                               (Phase 4+)
-│   ├── AnalysisBase.cs                     (mirrors BestFit AnalysisBase)
-│   ├── AnalysisRunCompletedEventArgs.cs
-│   ├── RiskAnalysis.cs                     (RiskAnalysis : AnalysisBase, IAnalysis)
-│   ├── RiskAnalysisOptions.cs              (v1.0 option names/defaults preserved: EstimateMeanRiskOnly=true,
-│   │                                        Realizations=1000, PRNGSeed=12345, LECOutputLength=200,
-│   │                                        ConfidenceIntervalWidth=0.9, Alpha=0.01, ConsequenceThreshold=0,
-│   │                                        SystemRiskMethod/JointConsequences/ComponentHazardDependency/
-│   │                                        HazardCorrelationMatrix, integration options + UseDefaults,
-│   │                                        SamplingScheme, Mode)
-│   └── CostBenefitAnalysis.cs              (owns a List<RiskAnalysis> of alternatives)
-└── Results/                                (Phase 4)
-    ├── SampledComponent.cs
-    ├── SampledFailureMode.cs
-    ├── ComponentRiskOutput.cs
-    ├── Curve.cs
-    ├── Curves.cs
-    ├── RiskPoint.cs
-    ├── Ensemble.cs
-    ├── ComponentRealization.cs
-    ├── FailureModeRealization.cs
-    ├── SystemRealization.cs
-    ├── ComponentResults.cs
-    ├── EnsembleResults.cs
-    ├── FailureModeResults.cs
-    ├── SummaryRiskResults.cs
-    └── SystemRiskResults.cs
+├── Core/                                   (12 — the public kernel)
+│   │   ByteArrayComparer, CanonicalContentHasher, CanonicalizationRules,
+│   │   ExtrapolationRangeException, FunctionHelpers, ParametricPosterior,
+│   │   RiskFunctionBase, SamplerSeedMap (+ internal SeedScribe), SeedHelpers,
+│   │   SerializationUtilities, TabularUncertainty, ValidationIssue
+│   ├── Support/                            (10, all internal — adapters and ambient scopes)
+│   │       DependencyMatrix, EpistemicSharingScope, EvaluationFaultScope,
+│   │       ExtrapolationSupport, LogicTreeAxisSeed, RangeGuardedUnivariateDistribution,
+│   │       RangeGuardedUnivariateFunction, SensitivityInput, ShiftedUnivariateDistribution,
+│   │       ValueOfInformationEstimator
+│   ├── Enums/                              (37 — every cross-cutting enum, one per file)
+│   │       AlarpProximity, BranchPolarity, CompositeCombinationType, CompositeFunctionType,
+│   │       ConsequenceFunctionType, ConstraintScope, DecisionStrategy, DependencyType,
+│   │       DiagnosticSeverity, DoNoHarmPolicy, DominanceVerdict, EconomicMetric,
+│   │       ExtrapolationPolicy, FailureModeMethod, FunctionUncertainty, HazardDimension,
+│   │       HazardFunctionType, JointConsequenceType, LifeCycleAccounting, MetricBasis,
+│   │       MetricForm, ObjectiveDirection, ResourceSeverity, ResponseFunctionType,
+│   │       RiskAnalysisMode, RiskElementType, RiskIntegrand, RiskMeasure, RiskMeasureOptions,
+│   │       RiskSerializationMode, RiskType, SamplingScheme, SensitivityMeasure, SystemRiskType,
+│   │       TransformFunctionType, UtilityFunctionForm, VegasTailFocusMode
+│   └── Interfaces/                         (14 — every cross-cutting interface)
+│           IAnalysis, IBivariateConsequenceFunction, IBivariateHazardFunction,
+│           IBivariateResponseFunction, IBivariateTransformFunction, IConsequenceFunction,
+│           IHazardFunction, IResponseFunction, IRiskElement,
+│           IRiskElementNameAuthority (internal), IRiskFunction, IRiskFunctionResolver,
+│           ITransformFunction, IUnivariateHazardFunction
+├── RiskFunctions/                          (2 — the function catalog surface)
+│   │   RiskFunctionFactory, RiskFunctionResolver
+│   ├── Support/                            (3, all internal)
+│   │       BivariateTableSupport, CompositeSupport, FunctionEntry
+│   ├── Hazards/                            (8)
+│   │       BivariateHazard, CompositeHazard, HazardFunctionBase, NonparametricHazard,
+│   │       ParametricUnivariateHazard, TabularHazard, UnivariateHazardBase,
+│   │       WeightedHazardFunction
+│   ├── Transforms/                         (7)
+│   │       BivariateTransform, CompositeTransform, LinearTransform, PowerTransform,
+│   │       TabularTransform, TransformFunctionBase, WeightedTransformFunction
+│   ├── Responses/                          (9)
+│   │   │   BivariateResponse, CompositeResponse, DeterioratingResponse, NonFailResponse,
+│   │   │   ParametricResponse, ResponseFunctionBase, TabularResponse, WeightedHazardLevel,
+│   │   │   WeightedResponseFunction
+│   │   ├── Trees/                          (14 — the common branching-response contracts)
+│   │   │   │   BivariateSourceAxis, IBranchingResponseFunction, ProbabilitySource,
+│   │   │   │   ProbabilitySourceKind, ResponseBranchDescriptor, ResponseBranchSample,
+│   │   │   │   TreeDeletePolicy, TreeFragment, TreeLinkMode, TreeNodeImportance,
+│   │   │   │   TreeNodeImportanceEntry, TreeNodeImportanceOptions, TreeNodeImportanceResult,
+│   │   │   │   TreeNodeReference
+│   │   │   └── Support/                    (8, all internal — the lifted compilation machinery)
+│   │   │           IProjectedIdentityResponse, ITreeComputeSource, TreeCanonicalPaths,
+│   │   │           TreeCompilationScope, TreeDependencyCollector, TreeFrameDescriber,
+│   │   │           TreeMutationSnapshot, TreePlanDependencies
+│   │   ├── EventTrees/                     (4)
+│   │   │   │   EventTree (+ EventTree.Authoring partial), EventTreeResponse,
+│   │   │   │   LegacyEventTreeConverter (internal)
+│   │   │   ├── Nodes/                      (5)
+│   │   │   │       ChanceNode, EventNodeBase, EventTreeLinkNode, InitiatingNode, RemainderNode
+│   │   │   └── Support/                    (2 files, all internal)
+│   │   │           EventTreeOccurrencePlan (+ EventTreeEvaluationInstruction,
+│   │   │           EventTreeOccurrenceNode, EventTreeSamplingClass), EventTreeReadScope
+│   │   └── FaultTrees/                     (12)
+│   │       │   FaultTree (+ FaultTree.Authoring partial), FaultTreeCcfGroup, FaultTreeCcfModel,
+│   │       │   FaultTreeCutSet, FaultTreeCutSetEvent, FaultTreeGateType, FaultTreeImportance,
+│   │       │   FaultTreeImportanceEntry, FaultTreeImportanceOptions, FaultTreeImportanceResult,
+│   │       │   FaultTreeResponse
+│   │       ├── Nodes/                      (5)
+│   │       │       FaultTreeBasicEventNode, FaultTreeGateNode, FaultTreeHouseEventNode,
+│   │       │       FaultTreeNodeBase, FaultTreeTransferNode
+│   │       └── Support/                    (5 files, all internal — the ROBDD kernel and plans)
+│   │               FaultTreeBdd, FaultTreeBddBudgetException,
+│   │               FaultTreeOccurrencePlan (+ FaultTreeVariableSlot, FaultTreeOccurrenceNode),
+│   │               FaultTreeReadScope, FrozenFaultTreeBdd
+│   └── Consequences/                       (8)
+│           BivariateConsequence, ClampedPowerFunction, CompositeConsequence,
+│           CompositeUnivariateFunction, ConsequenceFunctionBase, ParametricConsequence,
+│           TabularConsequence, WeightedConsequenceFunction
+├── Systems/                                (0 — reserved for the future multi-component
+│   └── Components/                          SystemModel root; 5)
+│       │   EndStateGroupLayout, FailureMode, LatentFactor, ResponseStage, SystemComponent
+│       └── Graph/                          (10)
+│               ComponentGraph, ConsequenceElement, HazardElement, HazardSourceOption,
+│               ResponseElement, RiskConnection, RiskElementBase, RiskElementFactory,
+│               RiskElementResolver, TransformElement
+├── Analyses/                               (0 at the root — split by domain)
+│   ├── Risk/                               (8 — the Monte Carlo risk engine)
+│   │   │   ConsequenceTypeDescriptor, FractilePin, HouseEventState,
+│   │   │   ResourceEstimate (+ ResourceEstimateItem), RiskAnalysis, RiskAnalysisOptions,
+│   │   │   SystemConvolution, TolerableRiskCriterion
+│   │   └── Support/                        (3, all internal)
+│   │           HazardProbabilitySupport, RiskAnalysisRunContext, RiskPercentileAssembler
+│   ├── CostBenefit/                        (16 — the study, its input records, PlanEconomics)
+│   │   │   CapitalCostEntry, ConsequenceMonetization, CostBenefitAnalysis,
+│   │   │   CostBenefitConstraint, CostBenefitMetric, CostBenefitOptions, CostStream,
+│   │   │   EpsilonConstraintStudy, LifeCyclePlan, MonetizationFactor, ObjectiveDeclaration,
+│   │   │   PlanEconomics, PmrmPartition, RecurringCostSegment, RiskReductionAlternative,
+│   │   │   UtilityDeclaration
+│   │   └── Support/                        (10, all internal — the decision and strategy engines)
+│   │           CostBenefitFormulary, CostBenefitMetricResolver, DecisionStrategyEngine,
+│   │           EpistemicCriteriaEngine, EpsilonSweepEngine, LecPartitionEngine, McdaEngine,
+│   │           ParetoFrontierEngine, RegretEngine (+ RegretComputation),
+│   │           StochasticDominanceEngine
+│   ├── LifeCycle/                          (3 — the life-cycle action records)
+│   │       HazardReplacement, LifeCycleDefinition, LifeCycleIntervention
+│   └── Support/                            (3 — the shared analysis lifecycle)
+│           AnalysisBase, AnalysisRunCompletedEventArgs, DiscountingSupport (internal)
+└── Results/                                (0 at the root — split by domain)
+    ├── Risk/                               (40 — realization/summary trees, curves, ensembles,
+    │       sampled compute, manifest, diagnostics, and the measure-query containers)
+    │       AnalysisRunManifest, ComponentRealization, ComponentResults, ComponentRiskOutput,
+    │       ComputationDiagnostic, ConfigurationRiskEntry, ConfigurationRiskResults,
+    │       ConsequenceResults, ConvergenceDiagnostics (+ ConvergenceIndicator), Curve, Curves,
+    │       DiscretizationEstimate, Ensemble, EnsembleResults, EnsembleSummary,
+    │       ExposurePeriodInterval, ExposurePeriodRiskResults, FailureModeRealization,
+    │       FailureModeResults, JointConvergenceCertificate, LogicTreeAxis, LogicTreeBranch,
+    │       LogicTreeEnumerationMap, RiskComputeFlags, RiskContribution, RiskPoint,
+    │       SampledBivariateHazard, SampledComponent, SampledFailureMode,
+    │       SecondaryDiscretizationDiagnostic, SensitivityEntry, SensitivityResults,
+    │       SummaryRiskResults, SystemRealization, SystemRiskResults, TolerableRiskConfidence,
+    │       TolerableRiskConfidenceMovement, ValueOfInformationEntry, ValueOfInformationGroup,
+    │       ValueOfInformationResults
+    ├── CostBenefit/                        (18 — the study, decision-framework, and strategy tables)
+    │       AlternativeEconomics, ChanceConstraintEntry, ConsequenceReduction,
+    │       ConstraintEvaluation, CostBenefitResults, DecisionSummary, DecisionSummaryEntry,
+    │       DominanceEntry, EpistemicMeasureSummary, EpsilonSweepEntry, EpsilonSweepResults,
+    │       FrontierProjection, IncrementalEntry, McdaResults, ParetoFrontierResults,
+    │       RegretMatrixResults, StrategyRanking, TrajectoryPoint
+    ├── LifeCycle/                          (3 — the epoch trajectory containers)
+    │       LifeCycleEpochEntry, LifeCycleEpochRisk, LifeCycleRiskResults
+    └── Support/                            (6, all internal — ledgers and the shared JSON options)
+            ConditionalColumnLedger, ConditionalQuadratureMesh, ContributionAccumulator,
+            ProbabilityPartitionBoundary, QuadratureMassLedger, ResultsJson
 ```
 
-*(v0.10: the `Models` segment and the per-cluster `Support` folders are retired; every enum lives in `Core/Enums/` and every interface in `Core/Interfaces/`. Namespace segments that could shadow a BCL or Numerics identifier are plural — `Systems`, `Hazards`, `Transforms`, `Responses`, `Consequences` — because `RMC.TotalRisk.System` would hide the BCL `System` namespace from inside every `RMC.TotalRisk.*` namespace, and a singular `Transform` segment hides `Numerics.Data.Transform`.)*
+*(v0.25: the domain folders and per-concern `Support`/`Nodes` folders reinstate organizing
+subfolders — reversing v0.10's "no `Support` folders" rule — while keeping v0.10's core
+invariant that folders mirror namespaces exactly, so every folder above is also a namespace.
+Namespace segments that could shadow a BCL or Numerics identifier are plural — `Systems`,
+`Hazards`, `Transforms`, `Responses`, `Consequences` — because `RMC.TotalRisk.System` would
+hide the BCL `System` namespace from inside every `RMC.TotalRisk.*` namespace, and a singular
+`Transform` segment hides `Numerics.Data.Transform`. The v0.25 organizing segments — `Risk`,
+`CostBenefit`, `LifeCycle`, `Support`, `Nodes` — were vetted the same way against BCL
+namespaces, Numerics identifiers, and existing type names. The test projects mirror this tree:
+`RMC.TotalRisk.Tests` folder-for-folder, and `RMC.TotalRisk.Verification` by domain
+(`Analyses/{Risk, CostBenefit, LifeCycle}`, `RiskFunctions/Responses/{Trees, EventTrees,
+FaultTrees}`).)*
 
 Note divergence from legacy flat `TotalRisk` namespace — every ported type's namespace changes during the port.
 
@@ -378,7 +409,7 @@ Note divergence from legacy flat `TotalRisk` namespace — every ported type's n
 What a headless caller imports:
 
 ```csharp
-using RMC.TotalRisk.Analyses;
+using RMC.TotalRisk.Analyses.Risk;
 using RMC.TotalRisk.Core.Enums;
 using RMC.TotalRisk.RiskFunctions.Hazards;
 using RMC.TotalRisk.RiskFunctions.Transforms;

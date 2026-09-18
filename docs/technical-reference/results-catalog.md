@@ -1,6 +1,6 @@
 # The Results Catalog
 
-> Technical reference for `RMC.TotalRisk.Results`: the realization and summary trees, the risk
+> Technical reference for `RMC.TotalRisk.Results.{Risk, CostBenefit, LifeCycle}`: the realization and summary trees, the risk
 > profiles, ensemble summaries and convergence diagnostics, the multi-consequence axis,
 > contribution, reliability-mode outputs, and the results-JSON conventions. Normative spec:
 > [../requirements/MODEL_LIBRARY_ARCHITECTURE.md](../requirements/MODEL_LIBRARY_ARCHITECTURE.md)

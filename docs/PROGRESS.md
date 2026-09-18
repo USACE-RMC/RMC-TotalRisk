@@ -1,5 +1,53 @@
 # Progress Log
 
+## 2026-09-18 — Folder/namespace reorganization (arch doc v0.25)
+
+**Goal:** reorganize the library, test, and verification trees for human readability on the
+RMC.BestFit model — domain subfolders under the main folders with `Support/` subfolders for
+helper classes — without renaming a single type or moving any serialized surface. Haden's four
+ratified directions: full namespace mirroring (every folder = a namespace segment, keeping the
+v0.10 invariant), enums/interfaces stay centralized in `Core/Enums`/`Core/Interfaces` (the
+rule re-scoped: cluster-local ones stay with their cluster), the full tidy (Analyses, Results,
+Core/Support, and `Nodes/`+`Support/` under all three tree folders), and the Verification
+project grouped by the same domains.
+
+**Landed** (five commits, build + fast suite green at every one):
+- **Core/Support** — the 10 internal adapters and ambient scopes leave the public kernel;
+  `SamplerSeedMapTests` moves to `Tests/Core` (an existing mis-mirror) with both linked-compile
+  csproj paths updated in the same commit.
+- **Analyses → Risk / CostBenefit / LifeCycle / Support** — the 43-file flat root separates
+  into the risk engine (+ internal `Risk/Support`), the cost-benefit study and records (+ the
+  ten internal engines in `CostBenefit/Support`), the life-cycle action records, and the shared
+  `AnalysisBase`/event-args/`DiscountingSupport`. `ResourceSeverity` splits into its own file
+  under `Core/Enums` per the one-enum-per-file rule; five C1-era file-scoped namespaces convert
+  to block style. Tests and Verification mirror (verification families under
+  `Analyses/{Risk,CostBenefit,LifeCycle}`).
+- **Results → Risk / CostBenefit / LifeCycle / Support** — the 67-file flat root separates the
+  same way; the six internal ledgers and `ResultsJson` land in `Results/Support`; the three
+  remaining file-scoped slips convert; the test tree mirrors one-for-one.
+- **RiskFunctions tidy** — the three internal helpers to `RiskFunctions/Support`; the tree
+  folders gain the long-sketched `Nodes/` (node types) and `Support/` (compilation machinery,
+  occurrence plans, read scopes, the ROBDD kernel); the four-file `EventTreeVerification`
+  partial moves as a unit.
+- **Docs + guards** — arch doc §3 rewritten to the new tree and stamped v0.25; CLAUDE.md
+  namespace map/table/tree rewritten; AGENTS.md regenerated and diff-verified; the seven live
+  technical-reference namespace mentions updated (dated logs left verbatim);
+  `validate-code-xml-docs.ps1` gains a **namespace↔folder mirror check** (library, Tests,
+  Verification; negative-tested) and `--no-incremental` on the enforced documentation builds —
+  the session found the incremental enforced build can silently skip compilation and pass a
+  tree carrying CS1574 errors (an inherited soundness gap, now closed; it had masked one
+  namespace-relative cref in `SystemConvolution` that is fixed here).
+
+**Verified:** zero type renames and zero serialized-attribute changes by construction (the
+identity surface is `nameof()` short names; the audit found no `Type.FullName`/assembly-name
+dependence anywhere); build 0 warnings; fast suite 1,634 + Api 91 count-identical; Verification
+inventory 303 count-identical; validator + traceability green; **all eight perf byte gates
+F1–F8 bit-exact against their standing pins** — the proof that hashes, seeds, and results are
+byte-identical across the reorganization.
+
+**Next:** CB4 (the serialized cost-benefit study) per the standing plan; the reorganization
+changes no roadmap state.
+
 ## 2026-09-17 — CWBI deployment preparation (branch `cwbi-release-prep`, on top of `v2.0-development`)
 
 **Goal:** make the repository publishable to `cwbi-apps/dst-total-risk` through the same

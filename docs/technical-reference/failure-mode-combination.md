@@ -1,7 +1,7 @@
 # Failure-Mode Combination Methods
 
 > Technical reference for the `FailureModeMethod` options on `RMC.TotalRisk.Systems.Components.SystemComponent`
-> and the combination kernels in `RMC.TotalRisk.Results.SampledComponent`. Grounding: the
+> and the combination kernels in `RMC.TotalRisk.Results.Risk.SampledComponent`. Grounding: the
 > *Failure Mode Combination Methods* technical note [24], whose structure this page follows, and the
 > 2024 verification report [8] §8.1. Executable evidence:
 > [../verification/mutually-exclusive.md](../verification/mutually-exclusive.md),

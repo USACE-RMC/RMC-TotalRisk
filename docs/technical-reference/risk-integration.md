@@ -1,6 +1,6 @@
 ﻿# Risk Integration
 
-> Technical reference for the numerical integration inside the `RMC.TotalRisk.Analyses.RiskAnalysis`
+> Technical reference for the numerical integration inside the `RMC.TotalRisk.Analyses.Risk.RiskAnalysis`
 > engine. Covers the 1D adaptive quadrature, the selectable integrand
 > (`RiskIntegrand`), and the multi-dimensional VEGAS integration with its power-transform tail focus.
 > Companion: [loss-exceedance-curves.md](loss-exceedance-curves.md) (how the integrator's evaluation

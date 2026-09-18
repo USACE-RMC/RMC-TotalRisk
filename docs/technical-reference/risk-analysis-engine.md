@@ -1,6 +1,6 @@
 # The Risk Analysis Engine
 
-> Technical reference for `RMC.TotalRisk.Analyses` — `RiskAnalysis`, `RiskAnalysisOptions`,
+> Technical reference for `RMC.TotalRisk.Analyses.Risk` — `RiskAnalysis`, `RiskAnalysisOptions`,
 > `ResourceEstimate`, and the run lifecycle — and the definitional spine its outputs implement.
 > Grounding: the *Risk Definitions, Measures, and Plots* technical note [23] (§1–4 here follow it)
 > and the *System Risk Analysis* technical note [25] (§5–8 here follow it), with the extended

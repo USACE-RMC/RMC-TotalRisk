@@ -1,6 +1,6 @@
 # Sensitivity Analysis
 
-> Technical reference for the unified sensitivity engine on `RMC.TotalRisk.Analyses.RiskAnalysis`:
+> Technical reference for the unified sensitivity engine on `RMC.TotalRisk.Analyses.Risk.RiskAnalysis`:
 > `MeasureSensitivity`, `MeasureSensitivityMatrix`, and `HazardLevelSensitivity`, the
 > `SensitivityMeasure` association catalog, and the `SensitivityResults`/`SensitivityEntry`
 > containers. v1.1 replaces the v1.0 tornado analysis with this engine by approved scope decision.

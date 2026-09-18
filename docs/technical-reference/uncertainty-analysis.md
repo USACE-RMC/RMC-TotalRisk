@@ -1,6 +1,6 @@
 # Uncertainty Analysis
 
-> Technical reference for the full-uncertainty simulation in `RMC.TotalRisk.Analyses.RiskAnalysis`
+> Technical reference for the full-uncertainty simulation in `RMC.TotalRisk.Analyses.Risk.RiskAnalysis`
 > and its results surface (`EnsembleResults`, `EnsembleSummary`, `ConvergenceDiagnostics`,
 > `SensitivityResults`). Grounding: the *Uncertainty Analysis* technical note [26], whose structure
 > this page follows, with the two-loop foundations in [7] App. C and the diagnostics of [7] §7.4–7.6.

@@ -195,7 +195,7 @@ samples continuous
 the zero atom — has no finite density. Any ramp-width approximation either loses the atom or corrupts
 the sampled density and its renormalization, and the per-stage PDF-normalize/regrid chain cannot hold
 the 1e-6 mean-parity gate. The engine therefore convolves **exactly on a shared consequence lattice**
-(`RMC.TotalRisk.Analyses.SystemConvolution`, public):
+(`RMC.TotalRisk.Analyses.Risk.SystemConvolution`, public):
 
 ```
 1. Lattice: step Δ = (Σ component maxima) / (SystemConvolutionPoints − 1); node k ↔ consequence k·Δ.
