@@ -71,6 +71,15 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+// Behind a path-routing load balancer the service is mounted under a prefix (CWBI serves it at
+// /total-risk). PathBase is read from configuration so the same image serves at the root when
+// the setting is absent.
+var pathBase = app.Configuration["PathBase"];
+if (!string.IsNullOrEmpty(pathBase))
+{
+    app.UsePathBase(pathBase);
+}
+
 // Configure error handling
 if (app.Environment.IsDevelopment())
 {
@@ -88,12 +97,10 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("EnableS
     app.MapOpenApi();
 }
 
-// HTTPS redirection is skipped in Development: local MCP clients connect over plain HTTP and a
-// redirect would break the streamable HTTP transport.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// No HTTPS redirection outside Development: the deployed container serves plain HTTP behind a
+// TLS-terminating load balancer, so a redirect would turn every health probe into a 307 and the
+// service would never report healthy. In Development it is skipped for the same reason as the
+// MCP transport: local clients connect over plain HTTP.
 
 app.UseCors(app.Environment.IsDevelopment() ? "AllowAll" : "Production");
 app.UseAuthorization();

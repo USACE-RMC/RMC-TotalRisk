@@ -33,11 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Numerics">
-      <HintPath>..\..\..\numerics\Numerics\bin\Debug\net10.0\Numerics.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="Data\LegacyEventTreeTemplates.xml" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Data\MANIFEST.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

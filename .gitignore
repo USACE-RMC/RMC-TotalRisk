@@ -23,6 +23,8 @@ coverage*.info
 *.nupkg
 packages/
 .nuget/
+# The in-repo prerelease RMC.Numerics feed is deliberately tracked (scripts/pack-local-numerics.ps1).
+!local-feed/RMC.Numerics.*.nupkg
 
 # OS cruft
 Thumbs.db

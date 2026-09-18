@@ -17,12 +17,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Interim sibling-repo reference. Switches to the RMC.Numerics PackageReference
-         (already declared in Directory.Packages.props) once a release >= 2.2.0 lands on
-         the local feed. See docs/requirements/SHARED_FUNCTIONS_STRATEGY.md D5. -->
-    <Reference Include="Numerics">
-      <HintPath>..\..\..\numerics\Numerics\bin\Debug\net10.0\Numerics.dll</HintPath>
-    </Reference>
+    <!-- The only external dependency (see the dependency rule in CLAUDE.md). Restored from
+         local-feed/ as a prerelease until Numerics 2.2.0 is published; the version is pinned in
+         Directory.Packages.props and flows to every consumer through this ProjectReference.
+         See docs/requirements/SHARED_FUNCTIONS_STRATEGY.md D5. -->
+    <PackageReference Include="RMC.Numerics" />
   </ItemGroup>
 
 </Project>

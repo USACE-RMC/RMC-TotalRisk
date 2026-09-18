@@ -1,5 +1,76 @@
 # Progress Log
 
+## 2026-09-17 — CWBI deployment preparation (branch `cwbi-release-prep`, on top of `v2.0-development`)
+
+**Goal:** make the repository publishable to `cwbi-apps/dst-total-risk` through the same
+guarded local-snapshot workflow System-Response and RasProcessingApi use, without changing any
+algorithm, result, or seed. Requested by Adam Gohs (CWBI release access only); the source
+branch for publication is `v2.0-development` until v2.0 merges to `main`.
+
+**Decisions (Adam, this session):** ship `RMC.TotalRisk.Tests` and `RMC.TotalRisk.Api.Tests` in
+the snapshot so both the local preparation and the CWBI-side workflow run the complete fast
+suites (the Verification project stays out); service port 8083 under path base `/total-risk`
+(dst-src is 8081 `/src`, dst-ras 8082 `/ras`); Haden's `C:\GIT\numerics\packages` feed line in
+`NuGet.config` stays untouched; the interim Numerics dependency is served from an in-repo
+prerelease package.
+
+**Landed:**
+- **Numerics as a package (the planned switch, done early against a local feed).** The five
+  csproj `<HintPath>` references to the sibling Debug DLL are replaced by one
+  `RMC.Numerics` PackageReference on the library (transitive to every consumer, the perf
+  harness included). `scripts/pack-local-numerics.ps1` clones the Numerics checkout at an exact
+  commit into a temp directory (never building in Haden's working tree), points its origin at
+  the public GitHub URL so Source Link is real, and packs `RMC.Numerics 2.2.0-dev.<sha7>`
+  (net10.0, Release) into `local-feed/`. Pinned in `Directory.Packages.props` at
+  `2.2.0-dev.7a80e35` (Numerics `7a80e354…`, the `bug-fixes-and-enhancements` head Haden had
+  built locally). `NuGet.config` gains the `local-feed` source; the new `nuget.cwbi.config`
+  lists only `local-feed` + nuget.org for the container and the CWBI runner. The runbook records
+  the exit procedure for the published 2.2.0.
+- **Lock files.** `RestorePackagesWithLockFile` in `Directory.Build.props`; `packages.lock.json`
+  committed for all six projects. Floating versions in `Directory.Packages.props` were left as
+  they were: two consecutive `--locked-mode` restores (root config and CWBI config) reproduced
+  the lock files byte-for-byte.
+- **API hosting.** `Program.cs` honors a `PathBase` setting and no longer redirects to HTTPS
+  outside Development (TLS terminates at CWBI's load balancer; the redirect turned the plain-HTTP
+  health probe into a 307). New integration test
+  `Test_ProductionHostingUnderPathBase_ServesPlainHttpWithoutRedirect` pins both.
+- **Release tooling** (RasProcessingApi's copy, which adds first-publication support for an
+  empty destination; the verifier pair from System-Response, whose Alpine base and health
+  contract match): `scripts/Publish-CwbiSnapshot.ps1`, `scripts/Prepare-CwbiRelease.ps1`,
+  `scripts/cwbi-release/{CwbiRelease.psm1,policy.json}`, `.github/workflows/cwbi-build-push-api.yml`,
+  `.github/scripts/{CwbiNuGetAudit.ps1,Verify-TotalRiskImage.ps1}`, the four
+  `.github/tests/*.ps1` contract suites, root `Dockerfile` (repo-root context, pinned
+  Alpine digests, non-root user, 8083, `/total-risk`, wget healthcheck), `.dockerignore`,
+  `.gitattributes` (no line-ending rule; binary markers only), `docs/CWBI_RELEASE_RUNBOOK.md`.
+  Source-branch approval is `v2.0-development`. Because the snapshot omits the solution's
+  Verification project, every dotnet command in the release path targets the two test projects
+  directly (they restore and build the library and the API transitively).
+- CLAUDE.md: the interim-dependency note corrected, the layout tree and commands table extended,
+  a CWBI Release section added; AGENTS.md regenerated.
+
+**Verified:** F1 perf fixture reproduces its pinned byte gate
+`b2e6ea88…` bit-exactly under the packaged Release Numerics (assembly version string
+unchanged at 2.2.0.0; Numerics has no `#if DEBUG` code); `dotnet build` 0 warnings; fast suite
+**1,634/1,634** + Api **91/91** (+1) in Release; `validate-code-xml-docs.ps1` clean; all four
+release contract suites pass (Prepare, Publish, Workflow, Verify-Image under Docker). **Full
+rehearsal of `Prepare-CwbiRelease.ps1`** in a throwaway clone (local `v2.0-development` at the
+branch head, empty orphan target — the first-publication shape): export + policy + secret scans,
+the four contract suites, locked restores, Release builds, both suites green on the exported
+tree, the four-project audit clean, the Docker image built and verified live (labels, non-root
+user, 8083, `/total-risk/health` → `Healthy`, detailed health JSON), root snapshot commit
+`1ff722b0…` with manifest SHA-256 `121c22a1…`. Two defects the rehearsal surfaced and the fixes
+that followed: (1) `git archive` under `core.autocrlf=true` exports CRLF, so the verifier
+fixtures' embedded `/bin/sh` shims died on their first line — the fixture writer now normalizes
+to LF (RasProcessingApi's own fix, taken verbatim); (2) `dotnet list <project> package
+--vulnerable` reports only the named project, so the gate now audits all four shipped projects
+and the shared parser requires a clean line from each.
+
+**Next:** merge `cwbi-release-prep` into `v2.0-development`, push, then run
+`pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1 -PrepareOnly` from a clean
+`v2.0-development` for the full end-to-end rehearsal before the first real publication (the
+one-time setup in the runbook: `cwbi` remote + `git config --local push.default nothing`).
+When Numerics 2.2.0 publishes, follow the runbook's exit procedure to retire `local-feed/`.
+
 ## 2026-09-10 — API transform-chain increment (wire contract 1.1.0)
 
 **Goal:** expose failure-mode hazard-to-response transform functions through the REST/MCP API

@@ -12,9 +12,9 @@
     <!-- Direct reference lifts the transitive Microsoft.OpenApi above the vulnerable 2.0.0 (NU1903). -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.*" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.0.0-preview.1" />
-    <!-- Declared for the planned switch from the interim sibling-repo HintPath to the
-         published package once RMC.Numerics >= 2.2.0 lands on the local feed. -->
-    <PackageVersion Include="RMC.Numerics" Version="2.*" />
+    <!-- Prerelease build of the unreleased Numerics 2.2.0, restored from local-feed/ (see
+         scripts/pack-local-numerics.ps1). Pin the published 2.2.0 here once it ships. -->
+    <PackageVersion Include="RMC.Numerics" Version="2.2.0-dev.7a80e35" />
   </ItemGroup>
 
 </Project>
