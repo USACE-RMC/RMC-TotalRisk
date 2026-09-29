@@ -8,7 +8,7 @@ $verifierPath = Join-Path $repositoryRoot '.github\scripts\Verify-TotalRiskImage
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "total-risk-image-verifier-$([Guid]::NewGuid())"
 $imagePrefix = "total-risk-image-verifier-test-$([Guid]::NewGuid().ToString('N'))"
 $fixtureImages = [System.Collections.Generic.List[string]]::new()
-$runtimeBase = 'mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:c4b29bf368004ad9076c1ab9bc91fb373561e3905b4345637e14e8b8c57e3be8'
+$runtimeBase = 'cgr.dev/usace-cwbi/chainguard-base-fips:latest'
 $sourceRevision = '1111111111111111111111111111111111111111'
 $snapshotRevision = '2222222222222222222222222222222222222222'
 $sourceRepository = 'https://github.com/USACE-RMC/RMC-TotalRisk'
@@ -127,7 +127,7 @@ function New-MetadataFixtureImage {
     $lines.Add($(if ($FromScratch) { 'FROM scratch' } else { "FROM $runtimeBase" }))
     $lines.Add('WORKDIR /app')
     if (-not $FromScratch) {
-        $lines.Add('RUN adduser --disabled-password --gecos "" --home /app --uid 10001 appuser')
+        $lines.Add('RUN adduser -D -g "" -h /app -u 10001 appuser && rm -rf /usr/share/doc')
     }
     if ($IncludeAssembly) {
         $lines.Add('COPY RMC.TotalRisk.Api.dll /app/RMC.TotalRisk.Api.dll')
@@ -139,10 +139,10 @@ function New-MetadataFixtureImage {
         $lines.Add('COPY trust-store-replacement /etc/ssl/certs/ca-certificates.crt')
     }
     elseif ($TrustStoreMutation -ceq 'MissingOne') {
-        $lines.Add('RUN rm /etc/ssl1.1/cert.pem')
+        $lines.Add('RUN rm /etc/pki/tls/certs/ca-bundle.crt')
     }
     elseif ($TrustStoreMutation -ceq 'MissingAll') {
-        $lines.Add('RUN rm /etc/ssl/cert.pem /etc/ssl/certs/ca-certificates.crt /etc/ssl1.1/cert.pem')
+        $lines.Add('RUN rm /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/cert.pem /etc/ssl/certs/ca-bundle.crt /etc/ssl/certs/ca-certificates.crt')
     }
     elseif ($TrustStoreMutation -ceq 'ReplaceCertSymlink') {
         $lines.Add('RUN rm /etc/ssl/cert.pem && ln -s /app/RMC.TotalRisk.Api.dll /etc/ssl/cert.pem')
@@ -158,7 +158,7 @@ function New-MetadataFixtureImage {
     $lines.Add("LABEL org.opencontainers.image.revision=$RevisionLabel")
     $lines.Add("LABEL $snapshotLabelName=$SnapshotLabel")
     if ($IncludeHealthcheck) {
-        $lines.Add('HEALTHCHECK CMD wget --quiet --tries=1 --spider http://localhost:8083/total-risk/health || exit 1')
+        $lines.Add('HEALTHCHECK CMD curl --fail --silent --show-error --output /dev/null http://localhost:8083/total-risk/health || exit 1')
     }
     $lines.Add("USER $User")
     $lines.Add("ENTRYPOINT $Entrypoint")
@@ -188,9 +188,7 @@ fi
 if [ "$FIXTURE_VARIANT" = "timeout" ]; then
   exec sleep 300
 fi
-while true; do
-  busybox nc -l -p 8083 -e /usr/local/bin/fixture-health-handler
-done
+exec socat TCP-LISTEN:8083,reuseaddr,fork EXEC:/usr/local/bin/fixture-health-handler
 '@
     $healthHandler = @'
 #!/bin/sh
@@ -237,10 +235,12 @@ printf 'HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %s\r\nConnection: clo
         "RUN printf '%s\n' 'fixture-root:x:0:0:fixture root:/app:/bin/sh' >> /etc/passwd`nUSER fixture-root"
     }
     else {
-        'RUN adduser --disabled-password --gecos "" --home /app --uid 10001 appuser' + "`nUSER appuser"
+        'RUN adduser -D -g "" -h /app -u 10001 appuser' + "`nUSER appuser"
     }
+    # The Chainguard base's busybox has no nc applet, so the fixture listens with socat.
     $dockerfile = @"
 FROM $runtimeBase
+RUN apk update && apk add --no-cache socat && rm -rf /usr/share/doc
 WORKDIR /app
 COPY RMC.TotalRisk.Api.dll /app/RMC.TotalRisk.Api.dll
 COPY dotnet /usr/local/bin/dotnet
@@ -254,7 +254,7 @@ EXPOSE 8083
 LABEL org.opencontainers.image.source=$sourceRepository
 LABEL org.opencontainers.image.revision=$sourceRevision
 LABEL $snapshotLabelName=$snapshotRevision
-HEALTHCHECK CMD wget --quiet --tries=1 --spider http://localhost:8083/total-risk/health || exit 1
+HEALTHCHECK CMD curl --fail --silent --show-error --output /dev/null http://localhost:8083/total-risk/health || exit 1
 $userSetup
 ENTRYPOINT ["dotnet", "RMC.TotalRisk.Api.dll"]
 "@
