@@ -33,8 +33,9 @@ You need:
 - permission to push to `cwbi-apps/dst-total-risk`;
 - Git credentials that work for that repository;
 - Git 2.42 or newer, PowerShell 7 (`pwsh`), the .NET 10 SDK, and Docker Desktop;
-- network access to nuget.org and to `mcr.microsoft.com` (the image build pulls the pinned .NET base images);
-- Docker Desktop running.
+- network access to nuget.org, `mcr.microsoft.com` (the image build pulls the pinned .NET SDK image) and `cgr.dev` (the runtime base and its packages);
+- Docker Desktop running;
+- a Chainguard pull token for the `usace-cwbi` organization, logged in with `docker login cgr.dev`. The runtime image builds on CWBI's Chainguard FIPS base image, so the image build and the image-verifier tests cannot pull it without this login. Create the token in the Chainguard console and paste its username and password at the prompts; never store them in the repository. Docker Desktop keeps the login in the Windows credential store, so this is needed once per token lifetime, not per publish.
 
 From `C:\GitHub\RMC-TotalRisk`, verify the repository connections (Git remotes):
 
@@ -174,3 +175,4 @@ The last two need Docker.
 | `NU1004` or `locked-mode` restore failure | A package version moved without its `packages.lock.json`. Run `dotnet restore --force-evaluate` on `v2.0-development`, review the lock-file diff, and commit it. |
 | Authentication or `403` error | Your current Git credentials cannot push to `cwbi-apps/dst-total-risk`; resolve access with that repository's administrators. |
 | Docker connection error | Start Docker Desktop, wait until it is ready, and run the publisher again. |
+| `cgr.dev/usace-cwbi/chainguard-base-fips` pull is unauthorized or not found | Your Chainguard login is missing or the pull token expired. Create a new pull token, run `docker login cgr.dev`, and run the publisher again. |

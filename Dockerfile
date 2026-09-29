@@ -21,15 +21,29 @@
 # base /total-risk. TLS terminates in front of the container. Override with
 # -e PathBase= / -e ASPNETCORE_URLS=... for local use.
 #
-# Base images are pinned by digest so a rebuild of the same commit yields the same runtime and
-# the verifier can compare the runtime trust store against the exact pinned base.
+# The runtime runs on CWBI's Chainguard FIPS base image, which CWBI requires for deployed
+# containers. Pulling cgr.dev/usace-cwbi needs a Chainguard login first: `docker login cgr.dev`
+# with a personal pull token locally, and the cwbi-apps org secrets CGR_USERNAME / CGR_PASSWORD
+# in the workflow. Local development runs the service with `dotnet run` and never builds this image.
+#
+# The Chainguard base ships without .NET, libstdc++, ICU, time zone data and curl (the
+# healthcheck client; the base has no wget). They come from CWBI's Chainguard package
+# repository at build time, so a rebuild picks up that repository's current patch versions.
+#
+# Base images and packages are deliberately unpinned: CWBI's security scans expect regular
+# rebuilds, and each rebuild should pick up the latest patched base and packages without
+# hand-edited digests.
 # ============================================================================
 
 ARG SOURCE_REPOSITORY=https://github.com/USACE-RMC/RMC-TotalRisk
 ARG SOURCE_REVISION=0000000000000000000000000000000000000000
 ARG SNAPSHOT_REVISION=not-published
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:c4b29bf368004ad9076c1ab9bc91fb373561e3905b4345637e14e8b8c57e3be8 AS base
+FROM cgr.dev/usace-cwbi/chainguard-base-fips:latest AS base
+# The docs and AOT/trimming build packs these packages install are never used by the runtime;
+# they are removed in the same layer because the release verifier forbids .md and .nupkg paths.
+RUN apk update && apk add --no-cache aspnet-10-runtime libstdc++ icu-libs tzdata curl && \
+    rm -rf /usr/share/doc /usr/share/dotnet/library-packs
 WORKDIR /app
 EXPOSE 8083
 
@@ -38,7 +52,7 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 ENV PathBase=/total-risk
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine@sha256:620e765fe18186c08399f7aa978f79f04b6bbf0ee1b3b8a91e2d5c9619e59da1 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -83,11 +97,11 @@ LABEL org.opencontainers.image.source=$SOURCE_REPOSITORY \
 
 COPY --from=publish /app/publish .
 
-RUN adduser --disabled-password --gecos "" --home /app appuser && \
+RUN adduser -D -g "" -h /app appuser && \
     chown -R appuser:appuser /app
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:8083/total-risk/health || exit 1
+    CMD curl --fail --silent --show-error --output /dev/null http://localhost:8083/total-risk/health || exit 1
 
 ENTRYPOINT ["dotnet", "RMC.TotalRisk.Api.dll"]
