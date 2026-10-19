@@ -6,7 +6,6 @@
 # Build context is the repository root, because the shared build inputs live there:
 #   <context>/
 #     Directory.Build.props, Directory.Packages.props, global.json, nuget.cwbi.config
-#     local-feed/                 (prerelease RMC.Numerics package until 2.2.0 ships)
 #     src/RMC.TotalRisk/          (the model library)
 #     src/RMC.TotalRisk.Api/      (the service)
 #
@@ -57,10 +56,9 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # Restore inputs first so the package layer is cached independently of source edits.
-# nuget.cwbi.config lists only the in-repo feed and nuget.org (the root NuGet.config also
-# names a developer-machine feed that does not exist here).
+# nuget.cwbi.config lists only nuget.org (the root NuGet.config also names a
+# developer-machine feed that does not exist here).
 COPY ["nuget.cwbi.config", "Directory.Build.props", "Directory.Packages.props", "global.json", "./"]
-COPY ["local-feed/", "local-feed/"]
 COPY ["src/RMC.TotalRisk/RMC.TotalRisk.csproj", "src/RMC.TotalRisk/packages.lock.json", "src/RMC.TotalRisk/"]
 COPY ["src/RMC.TotalRisk.Api/RMC.TotalRisk.Api.csproj", "src/RMC.TotalRisk.Api/packages.lock.json", "src/RMC.TotalRisk.Api/"]
 

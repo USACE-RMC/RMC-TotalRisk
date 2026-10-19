@@ -1,5 +1,28 @@
 # Progress Log
 
+## 2026-10-19 — Numerics 2.2.0 from nuget.org (branch `feature/numerics-2.2.0-nuget`)
+
+**Goal:** retire the interim `local-feed/` prerelease now that `RMC.Numerics` 2.2.0 is published
+(2026-09-18), per the exit checklist in `docs/CWBI_RELEASE_RUNBOOK.md`.
+
+**Landed:** `RMC.Numerics` pinned to `2.2.0` in `Directory.Packages.props`; `local-feed/` and
+`scripts/pack-local-numerics.ps1` deleted; the `local-feed` source dropped from `NuGet.config`
+(Haden's `C:\GIT\numerics\packages` feed stays) and `nuget.cwbi.config` (nuget.org only); the
+Dockerfile no longer copies the feed; `local-feed/` removed from the release allowlist and the
+image-context test now asserts the context carries no local feed; the six `packages.lock.json`
+files changed only in the `RMC.Numerics` entries (requested/resolved/content hash — no other
+package floated); README, runbook, and this file's dependency note updated, AGENTS.md regenerated.
+
+**Verified:** `dotnet build -c Release` 0 warnings; fast suites 1,634 + 91 green; validators and
+all four `.github/tests` contract suites green; `--locked-mode` restore green with both NuGet
+configs, and the Dockerfile build stage restores 2.2.0 from nuget.org with the locked hash.
+`2.2.0` contains the pinned `7a80e35`; its later changes are the Cholesky refactor (identical
+arithmetic), BFGS convergence, and MLE parameter-constraint bounds for Exponential, Gamma,
+LogNormal, and LP3. Verification families touching those paths (ClosedFormFunctions,
+CompositeEngine, CopulaDependence, NfipAssurance, CompositeHazard) 35/35 on both packages, and
+the F1, F2, F3, F6, and F8 byte-gate hashes are bit-identical between `2.2.0-dev.7a80e35` and
+`2.2.0`.
+
 ## 2026-09-18 — Folder/namespace reorganization (arch doc v0.25)
 
 **Goal:** reorganize the library, test, and verification trees for human readability on the

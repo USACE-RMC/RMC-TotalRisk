@@ -46,7 +46,7 @@ RMC.TotalRisk.dll                   ← model library (input functions, risk com
 Future consumers                    ← RMC.TotalRisk.UI → RMC-TotalRisk App; REST API; agents
 ```
 
-**Interim dependency note (updated 2026-09-17):** the library carries the ONE `RMC.Numerics` PackageReference (transitive to the Api, both test projects, Verification, and `scripts/perf/PerfHarness` through their ProjectReferences — no `<HintPath>` anywhere). Until Numerics 2.2.0 is published, the package is the prerelease `2.2.0-dev.<sha7>` in the tracked `local-feed/` folder, produced by `scripts/pack-local-numerics.ps1` from a Numerics checkout at an exact commit and pinned in `Directory.Packages.props`; `NuGet.config` lists Haden's `C:\GIT\numerics\packages` feed, `local-feed`, and nuget.org, while `nuget.cwbi.config` (container + CWBI runner) lists only `local-feed` + nuget.org. Every project commits a `packages.lock.json` (`RestorePackagesWithLockFile` in `Directory.Build.props`); after any package change run `dotnet restore --force-evaluate` and commit the lock diff. Exit gate when 2.2.0 ships: delete `local-feed/`, drop the two `local-feed` sources, pin `2.2.0`, regenerate the lock files (the full checklist is in `docs/CWBI_RELEASE_RUNBOOK.md`).
+**Numerics dependency (updated 2026-10-19):** the library carries the ONE `RMC.Numerics` PackageReference (transitive to the Api, both test projects, Verification, and `scripts/perf/PerfHarness` through their ProjectReferences — no `<HintPath>` anywhere), pinned to the published `2.2.0` in `Directory.Packages.props` and restored from nuget.org. `NuGet.config` lists Haden's `C:\GIT\numerics\packages` feed and nuget.org, while `nuget.cwbi.config` (container + CWBI runner) lists only nuget.org. Every project commits a `packages.lock.json` (`RestorePackagesWithLockFile` in `Directory.Build.props`); after any package change run `dotnet restore --force-evaluate` and commit the lock diff.
 
 **Namespace map** (folders mirror namespaces exactly — `Support/` and `Nodes/` folders included; no types in the bare `RMC.TotalRisk` root namespace; the `Analyses` and `Results` roots hold no files — everything lives in their `Risk`/`CostBenefit`/`LifeCycle`/`Support` domain folders). A `Support` folder holds a concern's internal machinery (plus, in `Analyses/Support`, the shared public analysis base types). Cross-cutting kernel enums live in `Core/Enums` and cross-cutting kernel interfaces in `Core/Interfaces`; cluster-local enums/interfaces (tree link modes, gate types, branching-response contracts) live with their cluster. The validator machine-checks the mirror for the library, Tests, and Verification (the Api DTO folders deliberately flatten). Authoritative layout: `docs/requirements/MODEL_LIBRARY_ARCHITECTURE.md` §3 (v0.25). Summary:
 
@@ -143,7 +143,6 @@ RMC.TotalRisk.Api.Tests       ← fast API unit + in-process integration tests (
 | Regenerate AGENTS.md after editing this file | `py scripts/sync-agents-md.py` |
 | Perf measurement (ONE fixture per invocation) | `dotnet run -c Release --project scripts/perf/PerfHarness -- F1` (fixtures F1–F8; single rep default, `--reps 3` for committed table rows; byte-gate hashes + allocation counters in `scripts/perf/RESULTS.md`) |
 | CWBI snapshot rehearsal / publication | `pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1 -PrepareOnly` (drop `-PrepareOnly` to publish; see the CWBI Release section) |
-| Repack the interim Numerics package | `pwsh -NoProfile -File .\scripts\pack-local-numerics.ps1` (then pin the printed version and `dotnet restore --force-evaluate`) |
 
 > **Long-run workflow rule (user directive, 2026-07-23):** run verification families and perf fixtures **isolated, one at a time** — `--filter "ClassName~<Family>"` per run, one harness fixture per command. Never launch the whole verification suite as one blocking run mid-session; at phase-close gates, run the families sequentially.
 
@@ -180,10 +179,9 @@ RMC-TotalRisk/                      ← repo root (github.com/USACE-RMC/RMC-Tota
 ├── LICENSE                         ← USACE-RMC notice, conditions, and disclaimer
 ├── global.json                     ← pins .NET 10 SDK (latestFeature roll-forward)
 ├── Directory.Build.props           ← RepositoryRoot + lock-file generation + opt-in EnforceXmlDocumentation
-├── Directory.Packages.props        ← central package versions (RMC.Numerics pinned to the interim prerelease)
-├── NuGet.config                    ← Haden's C:\GIT\numerics\packages feed + local-feed + nuget.org
-├── nuget.cwbi.config               ← container/CWBI restore sources: local-feed + nuget.org only
-├── local-feed/                     ← tracked RMC.Numerics 2.2.0-dev.<sha7>.nupkg (retire when 2.2.0 ships)
+├── Directory.Packages.props        ← central package versions (RMC.Numerics pinned to 2.2.0)
+├── NuGet.config                    ← Haden's C:\GIT\numerics\packages feed + nuget.org
+├── nuget.cwbi.config               ← container/CWBI restore source: nuget.org only
 ├── Dockerfile, .dockerignore       ← CWBI deployment image (repo-root context; 8083, /total-risk)
 ├── .gitattributes                  ← binary markers only (no line-ending rule; required by the release policy)
 ├── .github/                        ← CWBI workflow + image verifier + release contract tests (shipped in the snapshot)
@@ -203,7 +201,6 @@ RMC-TotalRisk/                      ← repo root (github.com/USACE-RMC/RMC-Tota
 │   ├── validate-code-xml-docs.ps1  ← doc coverage + namespace/culture/dependency/traceability guards
 │   ├── validate-verification-traceability.ps1 ← legacy/report scenario reconciliation
 │   ├── sync-agents-md.py           ← regenerates AGENTS.md from CLAUDE.md
-│   ├── pack-local-numerics.ps1     ← packs a Numerics checkout at an exact commit into local-feed/
 │   ├── Publish-CwbiSnapshot.ps1    ← the one-command guarded CWBI publisher (local; never CI)
 │   ├── Prepare-CwbiRelease.ps1     ← export → scan → build → test → audit → image → verify → snapshot commit
 │   ├── cwbi-release/               ← CwbiRelease.psm1 + policy.json (the snapshot allowlist)
@@ -238,11 +235,11 @@ RMC-TotalRisk/                      ← repo root (github.com/USACE-RMC/RMC-Tota
 The deployment path to `cwbi-apps/dst-total-risk` is the guarded local-snapshot workflow shared with System-Response and RasProcessingApi; the operator document is `docs/CWBI_RELEASE_RUNBOOK.md`. Rules that bite:
 
 - **Publication source is `v2.0-development`** (pinned in `scripts/Publish-CwbiSnapshot.ps1`, the approved-ref list in `CwbiRelease.psm1`, and the two release test fixtures); when v2.0 merges to `main`, move all three together.
-- **`scripts/cwbi-release/policy.json` is the allowlist.** Only listed files and directories leave the repository: the library, the Api, the two fast test projects (plus the linked `Verification/MSTestSettings.cs`), the root build inputs, `local-feed/`, the Dockerfile pair, and the shipped `.github/` tooling. A new root file the build needs, or a new directory under a shipped project, must be added there or the preparation stops with `non-allowlisted paths`. `docs/`, `examples/`, the Verification project, the solution file, the root `NuGet.config`, `launchSettings.json`, and `appsettings.Development.json` never ship.
+- **`scripts/cwbi-release/policy.json` is the allowlist.** Only listed files and directories leave the repository: the library, the Api, the two fast test projects (plus the linked `Verification/MSTestSettings.cs`), the root build inputs, the Dockerfile pair, and the shipped `.github/` tooling. A new root file the build needs, or a new directory under a shipped project, must be added there or the preparation stops with `non-allowlisted paths`. `docs/`, `examples/`, the Verification project, the solution file, the root `NuGet.config`, `launchSettings.json`, and `appsettings.Development.json` never ship.
 - **Every release-path dotnet command targets the two test projects, never the `.sln`** (the snapshot has no Verification project). Keep `Prepare-CwbiRelease.ps1`, the workflow, and `CwbiApiWorkflow.Tests.ps1` in step — the contract test pins the exact command strings.
 - **Locked restores are a hard gate.** A package-version change without its `packages.lock.json` fails preparation and the CWBI workflow with NU1004; run `dotnet restore --force-evaluate` and commit the lock diff with the change.
 - **The image contract** (port 8083, `PathBase=/total-risk`, non-root user, `Healthy` at `/total-risk/health`, JSON at `/total-risk/health/detailed`, no HTTPS redirect, no source/test/doc/config files in the runtime filesystem) is enforced by `Verify-TotalRiskImage.ps1` and pinned by its fixture tests; `Program.cs` must keep the `PathBase` middleware and must not reintroduce a non-Development HTTPS redirect.
-- The release tooling never changes an algorithm, a seed, or a result; the F1 byte gate is the tripwire that the packaged Numerics equals the sibling build.
+- The release tooling never changes an algorithm, a seed, or a result; the F1 byte gate is the tripwire that a Numerics version change moved no result.
 
 ## Roadmap and Priorities
 

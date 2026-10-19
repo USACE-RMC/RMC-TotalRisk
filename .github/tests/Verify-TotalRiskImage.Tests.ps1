@@ -303,7 +303,7 @@ function Assert-BuildContextHygiene {
     )) {
         Assert-Condition ($contextFiles -ccontains $requiredPath) "Docker context excluded locked production input '$requiredPath'."
     }
-    Assert-Condition (@($contextFiles | Where-Object { $_ -cmatch '^/context/local-feed/RMC\.Numerics\.[^/]+\.nupkg$' }).Count -eq 1) 'Docker context must carry exactly one local RMC.Numerics package.'
+    Assert-Condition (@($contextFiles | Where-Object { $_ -cmatch '^/context/local-feed(/|$)' }).Count -eq 0) 'Docker context must not carry a local package feed.'
     Assert-Condition (-not ($contextFiles -ccontains '/context/NuGet.config')) 'Docker context must not carry the developer NuGet.config.'
 
     foreach ($contextFile in $contextFiles) {
