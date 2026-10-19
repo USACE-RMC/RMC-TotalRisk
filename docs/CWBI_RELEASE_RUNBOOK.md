@@ -16,15 +16,13 @@ The process runs on your computer. It does not use a GitHub Action to do the pub
 
 ## What is published
 
-The snapshot contains the model library (`src/RMC.TotalRisk/`), the API (`src/RMC.TotalRisk.Api/`), the two fast test projects (`src/RMC.TotalRisk.Tests/`, `src/RMC.TotalRisk.Api.Tests/`, plus the one `MSTestSettings.cs` file they link from the Verification project), the shared build inputs at the repository root (`Directory.Build.props`, `Directory.Packages.props`, `global.json`, `nuget.cwbi.config`, `LICENSE`), the in-repo `local-feed/` package, the `Dockerfile` and `.dockerignore`, and the release tooling that the CWBI workflow needs (`.github/`). It does not contain the Verification project, the solution file, `docs/`, `examples/`, the perf harness, `CLAUDE.md`, `AGENTS.md`, the root `NuGet.config`, `launchSettings.json`, or `appsettings.Development.json`.
+The snapshot contains the model library (`src/RMC.TotalRisk/`), the API (`src/RMC.TotalRisk.Api/`), the two fast test projects (`src/RMC.TotalRisk.Tests/`, `src/RMC.TotalRisk.Api.Tests/`, plus the one `MSTestSettings.cs` file they link from the Verification project), the shared build inputs at the repository root (`Directory.Build.props`, `Directory.Packages.props`, `global.json`, `nuget.cwbi.config`, `LICENSE`), the `Dockerfile` and `.dockerignore`, and the release tooling that the CWBI workflow needs (`.github/`). It does not contain the Verification project, the solution file, `docs/`, `examples/`, the perf harness, `CLAUDE.md`, `AGENTS.md`, the root `NuGet.config`, `launchSettings.json`, or `appsettings.Development.json`.
 
 Because the solution file and the Verification project stay behind, every `dotnet` command in the release path targets the two test projects directly; they restore and build the library and the API transitively.
 
 ## The Numerics dependency
 
-The library depends on Numerics 2.2.0 APIs that are not yet published on nuget.org. Until they are, `RMC.Numerics` is consumed as a prerelease package (`2.2.0-dev.<commit>`) restored from `local-feed/`. That package is produced by `scripts/pack-local-numerics.ps1` from a local Numerics checkout at an exact commit; the version to pin lives in `Directory.Packages.props`. `nuget.cwbi.config` lists only `local-feed/` and nuget.org, which is why the Dockerfile, the workflow, and the preparation script restore with it rather than the root `NuGet.config`.
-
-When Numerics 2.2.0 is published: delete `local-feed/`, remove the `local-feed` source from `NuGet.config` and `nuget.cwbi.config`, pin `RMC.Numerics` to `2.2.0` in `Directory.Packages.props`, run `dotnet restore --force-evaluate`, and commit the refreshed `packages.lock.json` files. Remove the `local-feed/` entries from `scripts/cwbi-release/policy.json` and the context assertion in `.github/tests/Verify-TotalRiskImage.Tests.ps1` at the same time.
+The library consumes the published `RMC.Numerics` package from nuget.org; the version lives in `Directory.Packages.props`. `nuget.cwbi.config` lists only nuget.org, which is why the Dockerfile, the workflow, and the preparation script restore with it rather than the root `NuGet.config` (which also names a developer-machine feed). A Numerics version change needs its refreshed `packages.lock.json` files: run `dotnet restore --force-evaluate` and commit them with the change.
 
 ## One-time setup
 

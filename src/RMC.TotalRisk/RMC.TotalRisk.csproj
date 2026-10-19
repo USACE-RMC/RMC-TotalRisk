@@ -18,8 +18,8 @@
 
   <ItemGroup>
     <!-- The only external dependency (see the dependency rule in CLAUDE.md). Restored from
-         local-feed/ as a prerelease until Numerics 2.2.0 is published; the version is pinned in
-         Directory.Packages.props and flows to every consumer through this ProjectReference.
+         nuget.org; the version is pinned in Directory.Packages.props and flows to every
+         consumer through this ProjectReference.
          See docs/requirements/SHARED_FUNCTIONS_STRATEGY.md D5. -->
     <PackageReference Include="RMC.Numerics" />
   </ItemGroup>
