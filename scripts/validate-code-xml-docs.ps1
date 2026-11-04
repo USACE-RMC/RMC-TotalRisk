@@ -218,7 +218,7 @@ foreach ($file in $documentedMemberFiles) {
 }
 
 # The Authors attribution block is required in every type-bearing library and Verification
-# source file (test classes are exempt by policy; CLAUDE.md "Critical Quality Standards").
+# source file (test classes are exempt by the repository quality standards).
 # Its absence fails the same mandatory gate as the rest of the documentation standard.
 $authorsRequiredFiles = @($sourceFiles | Where-Object {
     $relative = Get-RelativePath $_.FullName
@@ -241,7 +241,7 @@ foreach ($file in $authorsRequiredFiles) {
     }
 }
 
-# Phase and process language is confined to the planning docs (CLAUDE.md): phase numbers,
+# Phase and process language is confined to the planning docs: phase numbers,
 # ratification narration, decision numbers, landing narration, planning-doc references, and
 # retired internal history vocabulary must not appear in source files. Comments describe the
 # software as it is.

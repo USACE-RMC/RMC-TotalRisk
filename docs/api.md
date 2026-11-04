@@ -168,11 +168,8 @@ probability and expected consequence by hazard plus the system response probabil
 
 ## MCP server
 
-The MCP endpoint runs the streamable HTTP transport in stateless mode at `/mcp`:
-
-```bash
-claude mcp add --transport http totalrisk http://localhost:5220/mcp
-```
+The MCP endpoint runs the streamable HTTP transport in stateless mode at `/mcp`. Register
+`http://localhost:5220/mcp` with any MCP client that supports the streamable HTTP transport.
 
 | Tool | Purpose |
 |---|---|

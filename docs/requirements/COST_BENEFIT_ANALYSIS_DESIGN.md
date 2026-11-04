@@ -1227,7 +1227,6 @@ At CB4: `docs/technical-reference/cost-benefit-analysis.md` (the practitioner ch
 the formulary, the strategy catalog with the honesty clauses, the α-convention mapping,
 the TR App. H note, the serialized-study lifecycle); results-catalog and
 uncertainty-analysis sections; `docs/verification/cost-benefit.md`; REMAINING-WORK
-extension records (decision 21); the arch-doc §7 amendment; CLAUDE.md matrix rows +
-AGENTS.md regeneration; `docs/references.md` additions (Smith 2022; Haimes 1971/2004;
+extension records (decision 21); the arch-doc §7 amendment; the repository guidance matrix rows; `docs/references.md` additions (Smith 2022; Haimes 1971/2004;
 Rockafellar & Uryasev 2000/2002; Artzner 1999; Savage 1951; Serrano-Lombillo et al. 2016;
 Fluixá-Sanmartín et al. 2020; Mays 2001; ER 1105-2-100/PR&G).

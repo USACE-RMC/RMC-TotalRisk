@@ -138,7 +138,7 @@ current tests when the bivariate family lands. `Test_DAMRAE` rows likewise (veri
 **Other repo hits:** `docs\technical-reference\response-functions.md:15` monotonicity policy cites
 multivariate scenarios (tailwater/river stage); `system-components.md:127,141,146` +
 `cascading-end-states.md:79,84` + several verification pages reference the FM/component Gaussian
-copula (MVN across components — distinct concept, keep terminology disjoint); CLAUDE.md matrix rows
+copula (MVN across components — distinct concept, keep terminology disjoint); the repository guidance matrix rows
 list `HazardDimension` enum as P/T and "bivariate" under Later/Phase 11.
 ### Legacy v1.0 bivariate functionality (explored 2026-08-03)
 
@@ -455,7 +455,7 @@ Functional requirements (traceable — architecture sections cite these as R1…
 **Process:**
 - R24. Full deliverable discipline: unit tests for every new public class; verification families with
   documented k·SE tolerances (legacy `Test_BivariateRisk`/`Test_DAMRAE` conversions + new copula
-  oracles); tech-ref + verification doc pages; arch-doc/ROADMAP/CLAUDE.md/traceability updates;
+  oracles); tech-ref + verification doc pages; arch-doc/ROADMAP/repository-guidance/traceability updates;
   per-session commits after green gates.
 ## Architecture
 
@@ -1005,7 +1005,7 @@ matrix/PROGRESS updates → commit. One session per sitting.
 | **S4 — BivariateResponse port** | v1.0 collapse behavior (stored `SecondaryHazardFunction` link with Id/lenient-name resolution, EstimateWeights incl. no-arg overload, manual weights, payload parity, BRF-semantics validation, staleness warning — no load-time re-derivation), secondary axis type/unit, surface mode; collapse-parity unit tests | S1 |
 | **S5 — Graph + FailureMode** | Open the five reserved gates; projection (HazardBinding stamping from ports, off-path secondary chain → `FailureMode.SecondaryHazardToResponse`, walk ordinals); §6.5 validation matrix + all scope/competing/profile guards; unit tests | S2, S4 |
 | **S6 — Engine** | The full D.2–D.7 machinery; hazardNonExceedance plumbing; sensitivity marginal columns; EstimateRecordedFailureEntries; F8 fixture. Extra gates: **F1 byte-gate hash unchanged** (univariate zero-overhead proof); F8 baseline row committed; existing `EngineReproducibilityVerification` green isolated | S2–S5 |
-| **S7 — Verification + docs close-out** | `BivariateRiskVerification` + `CopulaDependenceVerification` + reproducibility additions; both verification pages; traceability rows + validator; all doc amendments (arch doc, ROADMAP re-slice, tech-ref, CLAUDE.md, PROGRESS) | S6 |
+| **S7 — Verification + docs close-out** | `BivariateRiskVerification` + `CopulaDependenceVerification` + reproducibility additions; both verification pages; traceability rows + validator; all doc amendments (arch doc, ROADMAP re-slice, tech-ref, the repository guidance, PROGRESS) | S6 |
 
 ## Testing
 
@@ -1171,7 +1171,7 @@ current misattribution); `validate-verification-traceability.ps1` green.
   worked PGA/pool-duration example end-to-end; cost model; scope guards); `response-functions.md`
   (surface mode vs collapse mode, secondary axis, monotonicity cross-ref); transform/consequence
   pages (two-port cascade semantics, Bilinear evaluation + extrapolation policy).
-- **CLAUDE.md**: matrix rows for the four new types; remove "bivariate" from the Later row;
+- **Repository guidance**: matrix rows for the four new types; remove "bivariate" from the Later row;
   namespace-table rows; Numerics gotchas additions (`Bilinear` in `Numerics.Data` + not thread-safe;
   `InverseCDF(u,v)` second arg is a CONDITIONAL probability; LatinHypercube seed==0 unseeded;
   CopulaType append-only; 0-parameter copulas break estimation; AMH "AHM" typo).

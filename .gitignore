@@ -33,3 +33,18 @@ Thumbs.db
 
 # Local verification model datasets (exceed GitHub file-size limits)
 src/RMC.TotalRisk.Verification/VerificationModels/
+
+# Local AI-assistant metadata and scratch files. These stay on developer machines.
+AGENTS.md
+**/AGENTS.md
+CLAUDE.md
+**/CLAUDE.md
+.agents/
+.claude/
+.codex/
+.codex-tmp/
+superpowers/
+.superpowers/
+graphify-out/
+scripts/sync-agents-md.py
+.orchestration/

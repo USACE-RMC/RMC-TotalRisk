@@ -44,3 +44,7 @@ dotnet test -c Release   # fast unit-test gate (verification suite runs separate
 ```
 
 Development documentation starts at [docs/index.md](docs/index.md); the phased plan is [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## AI Disclosure
+
+Frontier generative AI models and coding agents are used to assist with software development, documentation, testing, and verification workflows. Project maintainers remain responsible for reviewing contributions, validating scientific methods and results, and deciding what is accepted or released.

@@ -16,5 +16,3 @@ Development documentation for the v1.1 effort. The v1.0 end-user documentation (
 | [requirements/SHARED_FUNCTIONS_STRATEGY.md](requirements/SHARED_FUNCTIONS_STRATEGY.md) | Cross-repo strategy: shared function math in Numerics; BestFit import contract |
 | [technical-reference/](technical-reference/README.md) | Per-family math documentation: input-function families, system components and the risk-element graph, the risk analysis engine, failure-mode combination, uncertainty analysis, integration and loss-exceedance construction, composites, cascades, event trees, fault trees, sensitivity, value of information, hashing/seeding, and the results catalog |
 | verification-requests/ | Specs for user-executed reference runs that produce committed benchmark data (created as needed) |
-
-Process rules (quality gates, contracts, workflows) live in [CLAUDE.md](../CLAUDE.md) at the repo root (AGENTS.md is generated from it).
