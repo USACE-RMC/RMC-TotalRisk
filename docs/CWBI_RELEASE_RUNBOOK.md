@@ -16,15 +16,13 @@ The process runs on your computer. It does not use a GitHub Action to do the pub
 
 ## What is published
 
-The snapshot contains the model library (`src/RMC.TotalRisk/`), the API (`src/RMC.TotalRisk.Api/`), the two fast test projects (`src/RMC.TotalRisk.Tests/`, `src/RMC.TotalRisk.Api.Tests/`, plus the one `MSTestSettings.cs` file they link from the Verification project), the shared build inputs at the repository root (`Directory.Build.props`, `Directory.Packages.props`, `global.json`, `nuget.cwbi.config`, `LICENSE`), the in-repo `local-feed/` package, the `Dockerfile` and `.dockerignore`, and the release tooling that the CWBI workflow needs (`.github/`). It does not contain the Verification project, the solution file, `docs/`, `examples/`, the perf harness, the root `NuGet.config`, `launchSettings.json`, or `appsettings.Development.json`.
+The snapshot contains the model library (`src/RMC.TotalRisk/`), the API (`src/RMC.TotalRisk.Api/`), the two fast test projects (`src/RMC.TotalRisk.Tests/`, `src/RMC.TotalRisk.Api.Tests/`, plus the one `MSTestSettings.cs` file they link from the Verification project), the shared build inputs at the repository root (`Directory.Build.props`, `Directory.Packages.props`, `global.json`, `nuget.cwbi.config`, `LICENSE`), the `Dockerfile` and `.dockerignore`, and the release tooling that the CWBI workflow needs (`.github/`). It does not contain the Verification project, the solution file, `docs/`, `examples/`, the perf harness, the root `NuGet.config`, `launchSettings.json`, or `appsettings.Development.json`.
 
 Because the solution file and the Verification project stay behind, every `dotnet` command in the release path targets the two test projects directly; they restore and build the library and the API transitively.
 
 ## The Numerics dependency
 
-The library depends on Numerics 2.2.0 APIs that are not yet published on nuget.org. Until they are, `RMC.Numerics` is consumed as a prerelease package (`2.2.0-dev.<commit>`) restored from `local-feed/`. That package is produced by `scripts/pack-local-numerics.ps1` from a local Numerics checkout at an exact commit; the version to pin lives in `Directory.Packages.props`. `nuget.cwbi.config` lists only `local-feed/` and nuget.org, which is why the Dockerfile, the workflow, and the preparation script restore with it rather than the root `NuGet.config`.
-
-When Numerics 2.2.0 is published: delete `local-feed/`, remove the `local-feed` source from `NuGet.config` and `nuget.cwbi.config`, pin `RMC.Numerics` to `2.2.0` in `Directory.Packages.props`, run `dotnet restore --force-evaluate`, and commit the refreshed `packages.lock.json` files. Remove the `local-feed/` entries from `scripts/cwbi-release/policy.json` and the context assertion in `.github/tests/Verify-TotalRiskImage.Tests.ps1` at the same time.
+The library consumes the published `RMC.Numerics` package from nuget.org; the version lives in `Directory.Packages.props`. `nuget.cwbi.config` lists only nuget.org, which is why the Dockerfile, the workflow, and the preparation script restore with it rather than the root `NuGet.config` (which also names a developer-machine feed). A Numerics version change needs its refreshed `packages.lock.json` files: run `dotnet restore --force-evaluate` and commit them with the change.
 
 ## One-time setup
 
@@ -33,8 +31,9 @@ You need:
 - permission to push to `cwbi-apps/dst-total-risk`;
 - Git credentials that work for that repository;
 - Git 2.42 or newer, PowerShell 7 (`pwsh`), the .NET 10 SDK, and Docker Desktop;
-- network access to nuget.org and to `mcr.microsoft.com` (the image build pulls the pinned .NET base images);
-- Docker Desktop running.
+- network access to nuget.org, `mcr.microsoft.com` (the image build pulls the pinned .NET SDK image) and `cgr.dev` (the runtime base and its packages);
+- Docker Desktop running;
+- a Chainguard pull token for the `usace-cwbi` organization, logged in with `docker login cgr.dev`. The runtime image builds on CWBI's Chainguard FIPS base image, so the image build and the image-verifier tests cannot pull it without this login. Create the token in the Chainguard console and paste its username and password at the prompts; never store them in the repository. Docker Desktop keeps the login in the Windows credential store, so this is needed once per token lifetime, not per publish.
 
 From `C:\GitHub\RMC-TotalRisk`, verify the repository connections (Git remotes):
 
@@ -174,3 +173,4 @@ The last two need Docker.
 | `NU1004` or `locked-mode` restore failure | A package version moved without its `packages.lock.json`. Run `dotnet restore --force-evaluate` on `v2.0-development`, review the lock-file diff, and commit it. |
 | Authentication or `403` error | Your current Git credentials cannot push to `cwbi-apps/dst-total-risk`; resolve access with that repository's administrators. |
 | Docker connection error | Start Docker Desktop, wait until it is ready, and run the publisher again. |
+| `cgr.dev/usace-cwbi/chainguard-base-fips` pull is unauthorized or not found | Your Chainguard login is missing or the pull token expired. Create a new pull token, run `docker login cgr.dev`, and run the publisher again. |

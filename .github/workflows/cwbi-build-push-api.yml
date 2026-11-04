@@ -51,6 +51,14 @@ jobs:
           ./.github/tests/CwbiApiWorkflow.Tests.ps1
           -WorkflowRevision $env:GITHUB_SHA
 
+      # The verifier fixtures and the release image both build on CWBI's Chainguard base.
+      - name: Log in to Chainguard registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: cgr.dev
+          username: ${{ secrets.CGR_USERNAME }}
+          password: ${{ secrets.CGR_PASSWORD }}
+
       - name: Test image verifier
         shell: pwsh
         run: ./.github/tests/Verify-TotalRiskImage.Tests.ps1

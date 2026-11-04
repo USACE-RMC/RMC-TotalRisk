@@ -146,14 +146,14 @@
       "rmc.totalrisk": {
         "type": "Project",
         "dependencies": {
-          "RMC.Numerics": "[2.2.0-dev.7a80e35, )"
+          "RMC.Numerics": "[2.2.0, )"
         }
       },
       "RMC.Numerics": {
         "type": "CentralTransitive",
-        "requested": "[2.2.0-dev.7a80e35, )",
-        "resolved": "2.2.0-dev.7a80e35",
-        "contentHash": "46S7kM8SQz1hIZTWBLAp2nITYa6QLbFrd8Yztt6hOIBI0K6ZD3xQb9mZiMfi9OmWGHBNhqc8nPuzymBAIlHZlg=="
+        "requested": "[2.2.0, )",
+        "resolved": "2.2.0",
+        "contentHash": "qjyd0mQF2p4ipdPjYuFZmlumB8jbr1FRnl/7/8aRCDpsPfif7FkctkQylHg16ZXTSr9QGRSaBCw2yeNsj8xgzQ=="
       }
     }
   }

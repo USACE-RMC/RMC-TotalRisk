@@ -89,6 +89,7 @@ function Assert-CwbiWorkflowContract {
     $checkoutIndex = Get-StepIndex -Steps $steps -Name 'Check out repository'
     $setupDotnetIndex = Get-StepIndex -Steps $steps -Name 'Set up .NET SDK'
     $workflowTestIndex = Get-StepIndex -Steps $steps -Name 'Verify deployment workflow contract'
+    $chainguardLoginIndex = Get-StepIndex -Steps $steps -Name 'Log in to Chainguard registry'
     $imageTestIndex = Get-StepIndex -Steps $steps -Name 'Test image verifier'
     $restoreIndex = Get-StepIndex -Steps $steps -Name 'Restore locked dependencies'
     $buildSolutionIndex = Get-StepIndex -Steps $steps -Name 'Build Release projects'
@@ -105,6 +106,7 @@ function Assert-CwbiWorkflowContract {
 
     Assert-Condition ($checkoutIndex -lt $setupDotnetIndex -and $setupDotnetIndex -lt $workflowTestIndex) 'Checkout and .NET setup must precede contract verification.'
     Assert-Condition ($workflowTestIndex -lt $imageTestIndex -and $imageTestIndex -lt $restoreIndex) 'Contract tests must run before dependency restore.'
+    Assert-Condition ($workflowTestIndex -lt $chainguardLoginIndex -and $chainguardLoginIndex -lt $imageTestIndex) 'Chainguard registry login must follow contract verification and precede the first cgr.dev pull (image verifier fixtures, then the image build).'
     Assert-Condition ($restoreIndex -lt $buildSolutionIndex -and $buildSolutionIndex -lt $testIndex) 'Locked restore, build, and tests are out of order.'
     Assert-Condition ($testIndex -lt $auditIndex -and $auditIndex -lt $sourceIndex -and $sourceIndex -lt $imageBuildIndex -and $imageBuildIndex -lt $imageVerifyIndex) 'Tests, audit, provenance, image build, and image verification are out of order.'
     Assert-Condition ($imageVerifyIndex -lt $credentialsIndex) 'All local verification must finish before AWS credentials are requested.'
@@ -115,6 +117,7 @@ function Assert-CwbiWorkflowContract {
         'actions/setup-dotnet' = 'a98b56852c35b8e3190ac28c8c2271da59106c68'
         'aws-actions/configure-aws-credentials' = 'e6de054238d6b7531b4efff3b6587d9aade6a06c'
         'aws-actions/amazon-ecr-login' = 'd539f0932e70871a027e9d5a9d8fc38589180a64'
+        'docker/login-action' = 'dbcb813823bdd20940b903addbd779551569679f'
     }
     $usesSteps = @(
         foreach ($jobProperty in $jobProperties) {
@@ -180,6 +183,12 @@ function Assert-CwbiWorkflowContract {
         Assert-Condition ($sourceRun.Contains($requiredFragment, [StringComparison]::Ordinal)) "Source provenance parser is missing '$requiredFragment'."
     }
 
+    $chainguardLogin = $steps[$chainguardLoginIndex]
+    Assert-Condition ($chainguardLogin.uses -ceq 'docker/login-action@dbcb813823bdd20940b903addbd779551569679f') 'Chainguard login must be pinned to the reviewed v4.6.0 commit.'
+    Assert-Condition ($chainguardLogin.with.registry -ceq 'cgr.dev') 'Chainguard login must target cgr.dev.'
+    Assert-Condition ($chainguardLogin.with.username -ceq '${{ secrets.CGR_USERNAME }}') 'Chainguard login must use the cwbi-apps org secret CGR_USERNAME.'
+    Assert-Condition ($chainguardLogin.with.password -ceq '${{ secrets.CGR_PASSWORD }}') 'Chainguard login must use the cwbi-apps org secret CGR_PASSWORD.'
+
     $imageBuildRun = [string]$steps[$imageBuildIndex].run
     Assert-Condition ($imageBuildRun.Contains('--file Dockerfile', [StringComparison]::Ordinal)) 'Image build must use the repository Dockerfile.'
     Assert-Condition ($imageBuildRun.Contains('--build-arg "SOURCE_REPOSITORY=https://github.com/USACE-RMC/RMC-TotalRisk"', [StringComparison]::Ordinal)) 'Image build must label the upstream source repository.'
@@ -231,7 +240,10 @@ function Assert-CwbiWorkflowContract {
     Assert-Condition ($digestRun.Contains('test "$deployment_digest" = "$CANDIDATE_DIGEST"', [StringComparison]::Ordinal)) 'Deployment tag must resolve to the candidate digest.'
 
     $structuredWorkflow = $workflow | ConvertTo-Json -Depth 100
-    Assert-Condition ($structuredWorkflow -notmatch '(?i)AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|secrets\.') 'Workflow must not use static AWS credentials or stored secrets.'
+    Assert-Condition ($structuredWorkflow -notmatch '(?i)AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN') 'Workflow must not use static AWS credentials.'
+    $secretReferences = @([regex]::Matches($structuredWorkflow, 'secrets\.[A-Za-z0-9_]+') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+    Assert-Condition (($secretReferences -join ',') -ceq 'secrets.CGR_PASSWORD,secrets.CGR_USERNAME') 'The only stored secrets the workflow may reference are the cwbi-apps Chainguard pull credentials.'
+    Assert-Condition (@([regex]::Matches($structuredWorkflow, 'secrets\.')).Count -eq 2) 'Each Chainguard pull credential may be referenced only once, in the Chainguard login step.'
     Assert-Condition ($structuredWorkflow -notmatch '(?i)aws\s+ecs') 'Workflow must leave ECS rollout to CWBI CodePipeline.'
     Assert-Condition ($structuredWorkflow -notmatch '(?i)put-image-tag-mutability') 'Workflow must never mutate ECR tag mutability.'
     Assert-Condition ($structuredWorkflow -notmatch '(?i):latest') 'Workflow must never publish a latest tag.'
@@ -783,6 +795,10 @@ try {
         @{ Name = 'digest-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify published image digest'; $w.jobs.'build-push-dev'.steps[$i].run = 'true # no-op' } },
         @{ Name = 'latest-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run) + "`ndocker push `"`$image_uri`:latest`"" } },
         @{ Name = 'static-credential'; Apply = { param($w) $w.env | Add-Member -NotePropertyName AWS_ACCESS_KEY_ID -NotePropertyValue 'fixture' } },
+        @{ Name = 'unreviewed-secret'; Apply = { param($w) $w.env | Add-Member -NotePropertyName EXTRA_SECRET -NotePropertyValue '${{ secrets.SOMETHING_ELSE }}' } },
+        @{ Name = 'duplicate-chainguard-secret'; Apply = { param($w) $w.env | Add-Member -NotePropertyName CGR_PASSWORD_COPY -NotePropertyValue '${{ secrets.CGR_PASSWORD }}' } },
+        @{ Name = 'chainguard-login-after-image-test'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.'build-push-dev'.steps); $from = Get-StepIndex @($s) 'Log in to Chainguard registry'; $item = $s[$from]; $s.RemoveAt($from); $to = (Get-StepIndex @($s) 'Test image verifier') + 1; $s.Insert($to, $item); $w.jobs.'build-push-dev'.steps = @($s) } },
+        @{ Name = 'chainguard-login-registry'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Log in to Chainguard registry'; $w.jobs.'build-push-dev'.steps[$i].with.registry = 'docker.io' } },
         @{ Name = 'ecs-call'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify published image digest'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run) + "`naws ecs update-service" } },
         @{ Name = 'unpinned-action'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Check out repository'; $w.jobs.'build-push-dev'.steps[$i].uses = 'actions/checkout@v6' } },
         @{ Name = 'duplicate-known-action'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Set up .NET SDK'; $w.jobs.'build-push-dev'.steps[$i].uses = 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' } },

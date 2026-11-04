@@ -36,7 +36,7 @@ examples/                ← example projects
 scripts/                 ← quality-gate scripts
 ```
 
-Build and test (requires the .NET 10 SDK and a sibling checkout of [Numerics](https://github.com/USACE-RMC/Numerics) at `C:\GIT\numerics`, built for `net10.0`):
+Build and test (requires the .NET 10 SDK; [Numerics](https://github.com/USACE-RMC/Numerics) is restored from nuget.org as `RMC.Numerics`):
 
 ```bash
 dotnet build             # zero warnings expected

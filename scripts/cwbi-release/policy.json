@@ -17,7 +17,6 @@
     "src/RMC.TotalRisk.Verification/MSTestSettings.cs"
   ],
   "allowedDirectories": [
-    "local-feed/",
     "src/RMC.TotalRisk/",
     "src/RMC.TotalRisk.Api/",
     "src/RMC.TotalRisk.Api.Tests/",

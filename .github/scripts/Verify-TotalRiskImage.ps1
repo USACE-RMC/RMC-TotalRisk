@@ -22,12 +22,13 @@ $ErrorActionPreference = 'Stop'
 
 $sourceRepository = 'https://github.com/USACE-RMC/RMC-TotalRisk'
 $snapshotLabelName = 'mil.army.usace.cwbi.snapshot-revision'
-$runtimeBase = 'mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:c4b29bf368004ad9076c1ab9bc91fb373561e3905b4345637e14e8b8c57e3be8'
+$runtimeBase = 'cgr.dev/usace-cwbi/chainguard-base-fips:latest'
 $filesystemVerificationLabelName = 'mil.army.usace.cwbi.image-verifier-export'
 $approvedRuntimeTrustStorePaths = @(
+    '/etc/pki/tls/certs/ca-bundle.crt',
     '/etc/ssl/cert.pem',
-    '/etc/ssl/certs/ca-certificates.crt',
-    '/etc/ssl1.1/cert.pem'
+    '/etc/ssl/certs/ca-bundle.crt',
+    '/etc/ssl/certs/ca-certificates.crt'
 )
 
 function Invoke-Docker {
@@ -342,6 +343,7 @@ try {
     $filesystemContainerId = ((Invoke-Docker -Arguments @(
         'create', '--label', $filesystemVerificationLabel, '--entrypoint', '/bin/true', $ImageRef
     )) -join '').Trim()
+    $null = Invoke-Docker -Arguments @('pull', '--quiet', $runtimeBase)
     $pinnedBaseContainerId = ((Invoke-Docker -Arguments @(
         'create', '--label', $filesystemVerificationLabel, '--entrypoint', '/bin/true', $runtimeBase
     )) -join '').Trim()
@@ -355,10 +357,15 @@ try {
             throw "Pinned runtime base is missing trust-store entry '$trustStorePath'."
         }
     }
-    Assert-CwbiRuntimeTrustStoreMatchesPinnedBase `
-        -CandidateManifest $candidateManifest `
-        -PinnedBaseManifest $pinnedBaseManifest `
-        -TrustStorePaths $approvedRuntimeTrustStorePaths
+    try {
+        Assert-CwbiRuntimeTrustStoreMatchesPinnedBase `
+            -CandidateManifest $candidateManifest `
+            -PinnedBaseManifest $pinnedBaseManifest `
+            -TrustStorePaths $approvedRuntimeTrustStorePaths
+    }
+    catch {
+        throw "$($_.Exception.Message) If $runtimeBase was updated after this image was built, rebuild the image and verify again."
+    }
     $rootFiles = @($candidateManifest.Paths)
 }
 finally {
