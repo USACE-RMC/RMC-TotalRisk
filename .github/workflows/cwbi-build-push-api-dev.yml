@@ -5,7 +5,7 @@
 # This file is published into cwbi-apps/dst-total-risk by scripts/Publish-CwbiSnapshot.ps1
 # and is exercised by .github/tests/CwbiApiWorkflow.Tests.ps1, which pins the step
 # names, order, action revisions, and script fragments below. Change both together.
-name: Build/Push RMC-TotalRisk to Dev
+name: Build/Push RMC-TotalRisk-dev
 
 on:
   push:
@@ -49,6 +49,7 @@ jobs:
         shell: pwsh
         run: >-
           ./.github/tests/CwbiApiWorkflow.Tests.ps1
+          -Environment dev
           -WorkflowRevision $env:GITHUB_SHA
 
       # The verifier fixtures and the release image both build on CWBI's Chainguard base.

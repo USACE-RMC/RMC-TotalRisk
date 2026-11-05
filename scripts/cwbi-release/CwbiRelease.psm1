@@ -5,6 +5,10 @@ $script:CwbiTestFaultAction = $null
 $script:CwbiRequiredSecretBearingFileExtensions = @(
     '.cer', '.crt', '.der', '.jks', '.key', '.keystore', '.p12', '.pem', '.pfx'
 )
+$script:CwbiSnapshotCommitSubjects = [ordered]@{
+    'cwbi-dev' = 'Create CWBI development snapshot'
+    'cwbi-test' = 'Create CWBI test snapshot'
+}
 $script:CwbiRequiredSecretBearingFileNames = @(
     'id_dsa', 'id_ecdsa', 'id_ed25519', 'id_rsa'
 )
@@ -1254,7 +1258,7 @@ function Get-CwbiSnapshotProvenance {
 
     $messageLines = @((Invoke-CwbiGit -Repository $Repository -Arguments @('show', '-s', '--format=%B', $Commit)).Output)
     $nonEmptyLines = @($messageLines | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_.Length -gt 0 })
-    if ($nonEmptyLines.Count -ne 5 -or $nonEmptyLines[0] -cne 'Create CWBI development snapshot') {
+    if ($nonEmptyLines.Count -ne 5 -or @($script:CwbiSnapshotCommitSubjects.Values) -cnotcontains $nonEmptyLines[0]) {
         throw "CWBI snapshot history is not a generated snapshot history at commit $($Commit.Substring(0, 12))."
     }
 
@@ -1404,7 +1408,7 @@ function New-CwbiReleaseEvidence {
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{64}$')][string]$PolicySha256,
         [Parameter(Mandatory)][object[]]$Manifest,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{64}$')][string]$ManifestSha256,
-        [Parameter(Mandatory)][ValidatePattern('^cwbi-dev$')][string]$BranchName,
+        [Parameter(Mandatory)][ValidatePattern('^cwbi-(dev|test)$')][string]$BranchName,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$TargetCommit
     )
 
@@ -1463,6 +1467,12 @@ function New-CwbiReleaseEvidence {
     return $evidencePath
 }
 
+function Get-CwbiSnapshotCommitSubject {
+    param([Parameter(Mandatory)][ValidatePattern('^cwbi-(dev|test)$')][string]$DestinationBranchName)
+
+    return [string]$script:CwbiSnapshotCommitSubjects[$DestinationBranchName]
+}
+
 function Publish-CwbiSnapshotToWorktree {
     [CmdletBinding()]
     param(
@@ -1477,7 +1487,7 @@ function Publish-CwbiSnapshotToWorktree {
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$EvidenceDirectory,
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ExpectedCurrentBranch,
         [Parameter(Mandatory)][ValidatePattern('^([0-9a-fA-F]{40}|unborn)$')][string]$ExpectedCurrentCommit,
-        [ValidatePattern('^cwbi-dev$')][string]$DestinationBranchName = 'cwbi-dev',
+        [ValidatePattern('^cwbi-(dev|test)$')][string]$DestinationBranchName = 'cwbi-dev',
         [string]$ExpectedCommonGitDirectory
     )
 
@@ -1500,7 +1510,7 @@ function Publish-CwbiSnapshotToWorktree {
     $currentBranch = ([string](Invoke-CwbiGit -Repository $targetPath -Arguments @('branch', '--show-current')).Output[0]).Trim()
     # An "unborn" target is a linked worktree created with `git worktree add --orphan`: the
     # branch name is checked out but has no commit yet. That is how the very first snapshot
-    # is published when the destination repository has no cwbi-dev branch at all.
+    # is published when the destination repository has no branch for that environment yet.
     $headResult = Invoke-CwbiGit -Repository $targetPath -Arguments @('rev-parse', '--verify', '--quiet', 'HEAD^{commit}') -AllowFailure
     $unborn = $headResult.ExitCode -ne 0
     $currentCommit = if ($unborn) { 'unborn' } else { ([string]$headResult.Output[0]).Trim() }
@@ -1616,7 +1626,7 @@ function Publish-CwbiSnapshotToWorktree {
             $commitArguments += '--allow-empty'
         }
         $commitArguments += @(
-            '-m', 'Create CWBI development snapshot',
+            '-m', (Get-CwbiSnapshotCommitSubject -DestinationBranchName $DestinationBranchName),
             '-m', "Source commit: $SourceCommit`nSource tree: $SourceTree`nPolicy SHA-256: $PolicySha256`nManifest SHA-256: $ManifestSha256"
         )
         Invoke-CwbiGit -Repository $targetPath -Arguments $commitArguments -HooksDirectory $emptyHooksDirectory | Out-Null
@@ -1690,6 +1700,7 @@ Export-ModuleMember -Function @(
     'Get-CwbiContentManifest',
     'Get-CwbiManifestSha256',
     'Get-CwbiReleasePolicy',
+    'Get-CwbiSnapshotCommitSubject',
     'New-CwbiRunUniqueImageTag',
     'Publish-CwbiSnapshotToWorktree'
 )
