@@ -79,20 +79,10 @@ try {
     $publisherCommand = Get-Command -Name $publisherScriptPath
     Assert-Condition $publisherCommand.Parameters.ContainsKey('PrepareOnly') 'The publisher lacks the non-publishing PrepareOnly mode.'
     Assert-Condition $publisherCommand.Parameters.ContainsKey('SourceRepository') 'The publisher lacks an explicit source-repository input for controlled execution.'
-    $environmentParameter = $publisherCommand.Parameters['Environment']
-    Assert-Condition ($null -ne $environmentParameter) 'The publisher lacks the -Environment selector.'
-    $environmentMandatory = @($environmentParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] -and $_.Mandatory })
-    Assert-Condition ($environmentMandatory.Count -gt 0) 'The publisher -Environment selector must be mandatory so no publish defaults to an environment.'
-    $environmentSet = @($environmentParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] })
-    Assert-Condition ($environmentSet.Count -eq 1) 'The publisher -Environment selector lacks one exact value set.'
-    Assert-Condition ((@($environmentSet[0].ValidValues) -join ',') -ceq 'dev,test') 'The publisher -Environment selector must accept exactly dev and test.'
-    Assert-Condition (-not $environmentSet[0].IgnoreCase) 'The publisher -Environment selector must be case-sensitive.'
 
     $publisherText = Get-Content -LiteralPath $publisherScriptPath -Raw
     Assert-Condition ($publisherText -match [regex]::Escape('snapshot/sanitized')) 'The publisher does not use the temporary snapshot/sanitized branch.'
-    Assert-Condition ($publisherText -match [regex]::Escape('$destinationBranch = "cwbi-$Environment"')) 'The publisher does not derive its destination branch from the selected environment.'
-    Assert-Condition ($publisherText -match [regex]::Escape('"$snapshotCommit`:refs/heads/$destinationBranch"')) 'The publisher does not name the exact destination branch in its explicit push.'
-    Assert-Condition ($publisherText -notmatch [regex]::Escape('refs/heads/cwbi-dev')) 'The publisher still hard-codes the dev destination branch.'
+    Assert-Condition ($publisherText -match [regex]::Escape('refs/heads/cwbi-dev')) 'The publisher does not name the exact destination branch in its explicit push.'
     Assert-Condition ($publisherText -match "Read-Host") 'The publisher does not require interactive publication approval.'
     Assert-Condition ($publisherText -match "-cne 'PUBLISH'") 'The publisher approval is not an exact PUBLISH confirmation.'
     Assert-Condition ($publisherText -notmatch 'RMC-TotalRisk-Snapshot') 'The publisher still depends on the discarded permanent snapshot worktree.'
@@ -100,19 +90,6 @@ try {
     $prepareText = Get-Content -LiteralPath $prepareScriptPath -Raw
     Assert-Condition ($prepareText -notmatch 'configuredTargetWorktree') 'The preparation script still requires the old permanent dst-total-risk worktree.'
     Assert-Condition ($prepareText -match '-BranchName\s+\$ExpectedTargetBranch') 'The preparation script does not publish into the caller-verified temporary branch.'
-    Assert-Condition ($prepareText -match '-DestinationBranchName\s+\$DestinationBranch\b') 'The preparation script does not record the caller-selected destination branch.'
-    $prepareCommand = Get-Command -Name $prepareScriptPath
-    $destinationParameter = $prepareCommand.Parameters['DestinationBranch']
-    Assert-Condition ($null -ne $destinationParameter) 'The preparation script lacks a DestinationBranch input.'
-    Assert-Condition (@($destinationParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] -and $_.Mandatory }).Count -gt 0) 'The preparation script DestinationBranch input must be mandatory.'
-    $destinationPattern = @($destinationParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidatePatternAttribute] })
-    Assert-Condition ($destinationPattern.Count -eq 1) 'The preparation DestinationBranch input lacks one exact validation rule.'
-    foreach ($acceptedDestination in @('cwbi-dev', 'cwbi-test')) {
-        Assert-Condition ($acceptedDestination -cmatch $destinationPattern[0].RegexPattern) "The preparation script rejects the $acceptedDestination destination."
-    }
-    foreach ($rejectedDestination in @('cwbi-prod', 'main', 'snapshot/sanitized', 'cwbi-test2')) {
-        Assert-Condition ($rejectedDestination -cnotmatch $destinationPattern[0].RegexPattern) "The preparation script accepts the unapproved $rejectedDestination destination."
-    }
 
     Import-Module $modulePath -Force
     $publishCommand = Get-Command -Name Publish-CwbiSnapshotToWorktree
@@ -121,17 +98,12 @@ try {
     Assert-Condition ('cwbi-dev' -match $branchPattern[0].RegexPattern) 'The legacy cwbi-dev preparation path is no longer accepted.'
     Assert-Condition ('snapshot/sanitized' -match $branchPattern[0].RegexPattern) 'The temporary snapshot/sanitized branch is not accepted.'
     Assert-Condition ('snapshot/unsafe' -notmatch $branchPattern[0].RegexPattern) 'An unapproved local snapshot branch is accepted.'
-    Assert-Condition ((Get-CwbiSnapshotCommitSubject -DestinationBranchName 'cwbi-dev') -ceq 'Create CWBI development snapshot') 'Dev snapshots no longer carry the established development subject.'
-    Assert-Condition ((Get-CwbiSnapshotCommitSubject -DestinationBranchName 'cwbi-test') -ceq 'Create CWBI test snapshot') 'Test snapshots do not name the test environment in their subject.'
-    Assert-Throws -MessagePattern 'validation|does not match' -FailureMessage 'A snapshot subject was produced for an unapproved destination.' -Action {
-        Get-CwbiSnapshotCommitSubject -DestinationBranchName 'cwbi-prod' | Out-Null
-    }
 
     $dirtyRepository = Join-Path $testRoot 'dirty-source'
     New-TestSourceRepository -Path $dirtyRepository
     Set-Content -LiteralPath (Join-Path $dirtyRepository 'uncommitted.txt') -Value 'do not ignore'
     Assert-Throws -MessagePattern 'clean' -FailureMessage 'The publisher did not stop before network access when the source checkout was dirty.' -Action {
-        & $publisherScriptPath -Environment test -SourceRepository $dirtyRepository -PrepareOnly
+        & $publisherScriptPath -SourceRepository $dirtyRepository -PrepareOnly
     }
 
     $traceEvents = if (Test-Path -LiteralPath $tracePath) { Get-Content -LiteralPath $tracePath -Raw } else { '' }

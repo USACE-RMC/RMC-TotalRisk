@@ -1,6 +1,5 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('dev', 'test', IgnoreCase = $false)][string]$Environment,
     [ValidateNotNullOrEmpty()][string]$SourceRepository = (Join-Path $PSScriptRoot '..'),
     [switch]$PrepareOnly
 )
@@ -9,8 +8,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $originBranch = 'v2.0-development'
-$destinationBranch = "cwbi-$Environment"
-$destinationTrackingRef = "refs/remotes/cwbi/$destinationBranch"
 $localSnapshotBranch = 'snapshot/sanitized'
 $temporaryContainer = $null
 $temporaryWorktree = $null
@@ -51,27 +48,24 @@ function Get-PublisherCommit {
 }
 
 function Get-PublisherDestinationCommit {
-    param(
-        [Parameter(Mandatory)][string]$Repository,
-        [Parameter(Mandatory)][ValidatePattern('^cwbi-(dev|test)$')][string]$Branch
-    )
+    param([Parameter(Mandatory)][string]$Repository)
 
     # Exit code 2 from `git ls-remote --exit-code` means the remote has no matching ref.
-    $listing = Invoke-PublisherGit -Repository $Repository -Arguments @('ls-remote', '--exit-code', 'cwbi', "refs/heads/$Branch") -AllowFailure
+    $listing = Invoke-PublisherGit -Repository $Repository -Arguments @('ls-remote', '--exit-code', 'cwbi', 'refs/heads/cwbi-dev') -AllowFailure
     if ($listing.ExitCode -eq 2) {
         return 'unborn'
     }
     if ($listing.ExitCode -ne 0) {
-        throw "Unable to read refs/heads/$Branch from the cwbi remote."
+        throw 'Unable to read refs/heads/cwbi-dev from the cwbi remote.'
     }
     $remoteCommit = ([string]$listing.Output[0]).Split("`t")[0].Trim()
     if ($remoteCommit -notmatch '^[0-9a-f]{40}$') {
-        throw "The cwbi remote returned an unexpected $Branch reference."
+        throw 'The cwbi remote returned an unexpected cwbi-dev reference.'
     }
-    Invoke-PublisherGit -Repository $Repository -Arguments @('fetch', '--no-tags', 'cwbi', "refs/heads/$Branch`:refs/remotes/cwbi/$Branch") | Out-Null
-    $fetchedCommit = Get-PublisherCommit -Repository $Repository -Revision "refs/remotes/cwbi/$Branch"
+    Invoke-PublisherGit -Repository $Repository -Arguments @('fetch', '--no-tags', 'cwbi', 'refs/heads/cwbi-dev:refs/remotes/cwbi/cwbi-dev') | Out-Null
+    $fetchedCommit = Get-PublisherCommit -Repository $Repository -Revision 'refs/remotes/cwbi/cwbi-dev'
     if ($fetchedCommit -cne $remoteCommit) {
-        throw "$Branch changed between listing and fetching it. Run the publisher again."
+        throw 'cwbi-dev changed between listing and fetching it. Run the publisher again.'
     }
     return $fetchedCommit
 }
@@ -134,13 +128,13 @@ try {
         throw 'Local v2.0-development does not exactly match origin/v2.0-development. Push or remove local-only commits before publishing.'
     }
 
-    # The destination branch may not exist yet (a brand-new cwbi-apps repository or environment).
-    # In that case the snapshot becomes the root commit of that branch and the local workspace
+    # The destination may not have a cwbi-dev branch yet (a brand-new cwbi-apps repository).
+    # In that case the snapshot becomes the root commit of cwbi-dev and the local workspace
     # starts as an empty orphan worktree. 'unborn' is the sentinel the preparation script and
     # release module accept for that state.
-    $previousDestinationCommit = Get-PublisherDestinationCommit -Repository $sourcePath -Branch $destinationBranch
+    $previousDestinationCommit = Get-PublisherDestinationCommit -Repository $sourcePath
     if ($previousDestinationCommit -ceq 'unborn') {
-        Write-Host "$destinationBranch does not exist yet on cwbi-apps/dst-total-risk. This run will create it from a root snapshot commit."
+        Write-Host 'cwbi-dev does not exist yet on cwbi-apps/dst-total-risk. This run will create it from a root snapshot commit.'
     }
 
     Write-Host '[3/6] Create a disposable local snapshot workspace'
@@ -168,7 +162,6 @@ try {
         -TargetWorktree $temporaryWorktree `
         -ExpectedTargetBranch $localSnapshotBranch `
         -ExpectedTargetCommit $previousDestinationCommit `
-        -DestinationBranch $destinationBranch `
         -EvidenceDirectory $evidenceDirectory
 
     $snapshotCommit = Get-PublisherCommit -Repository $temporaryWorktree -Revision 'HEAD'
@@ -179,7 +172,7 @@ try {
 
     Write-Host '[5/6] Review the prepared result'
     Write-Host "Source v2.0-development:       $sourceCommit"
-    Write-Host "Previous ${destinationBranch}: $previousDestinationCommit"
+    Write-Host "Previous cwbi-dev: $previousDestinationCommit"
     Write-Host "Prepared snapshot: $snapshotCommit"
     if ($previousDestinationCommit -ceq 'unborn') {
         (Invoke-PublisherGit -Repository $temporaryWorktree -Arguments @('show', '--stat', '--format=', $snapshotCommit)).Output | Write-Host
@@ -190,7 +183,7 @@ try {
     (Invoke-PublisherGit -Repository $temporaryWorktree -Arguments @('log', '-1', '--oneline', '--decorate=no', $snapshotCommit)).Output | Write-Host
 
     if ($snapshotCommit -ceq $previousDestinationCommit) {
-        Write-Host "$destinationBranch already contains this exact sanitized snapshot. Nothing needs to be pushed."
+        Write-Host 'cwbi-dev already contains this exact sanitized snapshot. Nothing needs to be pushed.'
         return
     }
     if ($PrepareOnly) {
@@ -198,7 +191,7 @@ try {
         return
     }
 
-    $approval = Read-Host "Type PUBLISH to push this exact snapshot to cwbi-apps/dst-total-risk $destinationBranch"
+    $approval = Read-Host 'Type PUBLISH to push this exact snapshot to cwbi-apps/dst-total-risk cwbi-dev'
     if ($approval -cne 'PUBLISH') {
         Write-Host 'Publication cancelled. Nothing was pushed.'
         return
@@ -210,24 +203,24 @@ try {
         throw 'Local v2.0-development changed while the snapshot was being prepared. Run the publisher again.'
     }
     Assert-CwbiPushTopology -Repository $temporaryWorktree -BranchName $localSnapshotBranch
-    $currentDestinationCommit = Get-PublisherDestinationCommit -Repository $sourcePath -Branch $destinationBranch
+    $currentDestinationCommit = Get-PublisherDestinationCommit -Repository $sourcePath
     if ($currentDestinationCommit -cne $previousDestinationCommit) {
-        throw "$destinationBranch changed while the snapshot was being prepared. Nothing was pushed; run the publisher again."
+        throw 'cwbi-dev changed while the snapshot was being prepared. Nothing was pushed; run the publisher again.'
     }
 
     Invoke-PublisherGit -Repository $temporaryWorktree -Arguments @(
-        'push', '--porcelain', 'cwbi', "$snapshotCommit`:refs/heads/$destinationBranch"
+        'push', '--porcelain', 'cwbi', "$snapshotCommit`:refs/heads/cwbi-dev"
     ) | Out-Null
     $remoteResult = Invoke-PublisherGit -Repository $temporaryWorktree -Arguments @(
-        'ls-remote', '--exit-code', 'cwbi', "refs/heads/$destinationBranch"
+        'ls-remote', '--exit-code', 'cwbi', 'refs/heads/cwbi-dev'
     )
     $publishedCommit = ([string]$remoteResult.Output[0]).Split("`t")[0].Trim()
     if ($publishedCommit -cne $snapshotCommit) {
-        throw "Push returned successfully, but $destinationBranch resolves to $publishedCommit instead of $snapshotCommit."
+        throw "Push returned successfully, but cwbi-dev resolves to $publishedCommit instead of $snapshotCommit."
     }
 
     $publicationSucceeded = $true
-    Write-Host "Published and verified $destinationBranch at $snapshotCommit."
+    Write-Host "Published and verified cwbi-dev at $snapshotCommit."
 }
 finally {
     $cleanupProblems = [System.Collections.Generic.List[string]]::new()

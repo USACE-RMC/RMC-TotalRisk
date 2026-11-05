@@ -259,7 +259,7 @@ try {
     }
 
     $prepareCommand = Get-Command -Name $prepareScriptPath
-    foreach ($mandatoryParameter in @('TargetWorktree', 'ExpectedTargetBranch', 'ExpectedTargetCommit', 'DestinationBranch')) {
+    foreach ($mandatoryParameter in @('TargetWorktree', 'ExpectedTargetBranch', 'ExpectedTargetCommit')) {
         $mandatoryAttributes = @($prepareCommand.Parameters[$mandatoryParameter].Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] -and $_.Mandatory })
         Assert-Condition ($mandatoryAttributes.Count -gt 0) "Public preparation parameter $mandatoryParameter is not mandatory."
     }
@@ -1087,29 +1087,6 @@ try {
     Invoke-Git -Repository $sourceRepository -Arguments @('worktree', 'remove', '--force', $unbornWorktree) | Out-Null
     Invoke-Git -Repository $sourceRepository -Arguments @('branch', '-D', 'snapshot/sanitized') | Out-Null
 
-    $unbornTestWorktree = Join-Path $testRoot 'unborn-test-destination-worktree'
-    Invoke-Git -Repository $sourceRepository -Arguments @('worktree', 'add', '--orphan', '-b', 'snapshot/sanitized', $unbornTestWorktree) | Out-Null
-    $unbornTestCommon = ([string](Invoke-Git -Repository $unbornTestWorktree -Arguments @('rev-parse', '--path-format=absolute', '--git-common-dir')).Output[0]).Trim()
-    $unbornTestResult = Publish-CwbiSnapshotToWorktree `
-        -TargetWorktree $unbornTestWorktree `
-        -SnapshotRoot $snapshotRoot `
-        -BranchName 'snapshot/sanitized' `
-        -DestinationBranchName 'cwbi-test' `
-        -SourceCommit $sourceCommit `
-        -SourceTree $metadata.SourceTree `
-        -PolicySha256 $metadata.PolicySha256 `
-        -PolicyPath $metadata.PolicyPath `
-        -EvidenceDirectory $evidenceDirectory `
-        -ManifestSha256 $metadata.ManifestSha256 `
-        -ExpectedCurrentBranch 'snapshot/sanitized' `
-        -ExpectedCurrentCommit 'unborn' `
-        -ExpectedCommonGitDirectory $unbornTestCommon
-    Assert-Condition ($unbornTestResult.CreatedRootCommit -eq $true -and $unbornTestResult.Branch -ceq 'cwbi-test') 'A first publication to a missing cwbi-test branch did not create a root commit for cwbi-test.'
-    $unbornTestSubject = ([string](Invoke-Git -Repository $unbornTestWorktree -Arguments @('log', '-1', '--format=%s')).Output[0]).Trim()
-    Assert-Condition ($unbornTestSubject -ceq 'Create CWBI test snapshot') 'A test-environment snapshot commit was not named as a test snapshot.'
-    Invoke-Git -Repository $sourceRepository -Arguments @('worktree', 'remove', '--force', $unbornTestWorktree) | Out-Null
-    Invoke-Git -Repository $sourceRepository -Arguments @('branch', '-D', 'snapshot/sanitized') | Out-Null
-
     $orphanRollbackRepository = Join-Path $testRoot 'orphan-rollback-source'
     New-TestRepository -Path $orphanRollbackRepository
     Set-Content -LiteralPath (Join-Path $orphanRollbackRepository 'before.txt') -Value 'before orphan publication' -NoNewline
@@ -1209,57 +1186,6 @@ try {
     $temporaryEvidence = Get-Content -LiteralPath $temporaryBranchResult.EvidencePath -Raw | ConvertFrom-Json
     Assert-Condition ($temporaryEvidence.target.branch -ceq 'cwbi-dev') 'Temporary-branch evidence recorded the local holding branch as the destination.'
     Invoke-Git -Repository $sourceRepository -Arguments @('worktree', 'remove', '--force', $temporaryBranchWorktree) | Out-Null
-    Invoke-Git -Repository $sourceRepository -Arguments @('branch', '-D', 'snapshot/sanitized') | Out-Null
-
-    $testDestinationWorktree = Join-Path $testRoot 'test-destination-snapshot-worktree'
-    Invoke-Git -Repository $sourceRepository -Arguments @(
-        'worktree', 'add', '-b', 'snapshot/sanitized', $testDestinationWorktree, $targetMetadata.Commit
-    ) | Out-Null
-    $testDestinationParameters = @{
-        TargetWorktree = $testDestinationWorktree
-        SnapshotRoot = $snapshotRoot
-        BranchName = 'snapshot/sanitized'
-        DestinationBranchName = 'cwbi-test'
-        SourceCommit = $sourceCommit
-        SourceTree = $metadata.SourceTree
-        PolicySha256 = $metadata.PolicySha256
-        PolicyPath = $metadata.PolicyPath
-        ManifestSha256 = $metadata.ManifestSha256
-        EvidenceDirectory = $evidenceDirectory
-        ExpectedCurrentBranch = 'snapshot/sanitized'
-        ExpectedCurrentCommit = $targetMetadata.Commit
-        ExpectedCommonGitDirectory = $targetCommonDirectory
-    }
-    $testDestinationResult = Publish-CwbiSnapshotToWorktree @testDestinationParameters
-    Assert-Condition ($testDestinationResult.Branch -ceq 'cwbi-test') 'Test publication metadata did not record cwbi-test as the destination.'
-    $testDestinationEvidence = Get-Content -LiteralPath $testDestinationResult.EvidencePath -Raw | ConvertFrom-Json
-    Assert-Condition ($testDestinationEvidence.target.branch -ceq 'cwbi-test') 'Test-destination evidence did not record cwbi-test as the destination.'
-
-    $snapshotTree = ([string](Invoke-Git -Repository $testDestinationWorktree -Arguments @('rev-parse', "$($targetMetadata.Commit)^{tree}")).Output[0]).Trim()
-    $snapshotProvenance = "Source commit: $sourceCommit`nSource tree: $($metadata.SourceTree)`nPolicy SHA-256: $($metadata.PolicySha256)`nManifest SHA-256: $($metadata.ManifestSha256)"
-    $testSubjectCommit = ([string](Invoke-Git -Repository $testDestinationWorktree -Arguments @(
-        'commit-tree', $snapshotTree,
-        '-p', $targetMetadata.Commit,
-        '-m', 'Create CWBI test snapshot',
-        '-m', $snapshotProvenance
-    )).Output[0]).Trim()
-    Invoke-Git -Repository $testDestinationWorktree -Arguments @('update-ref', 'refs/heads/snapshot/sanitized', $testSubjectCommit, $targetMetadata.Commit) | Out-Null
-    $testDestinationParameters.ExpectedCurrentCommit = $testSubjectCommit
-    $testHistoryResult = Publish-CwbiSnapshotToWorktree @testDestinationParameters
-    Assert-Condition ($testHistoryResult.Commit -ceq $testSubjectCommit -and -not $testHistoryResult.Changed) 'A snapshot history that continues from development snapshots into test snapshots was not accepted.'
-
-    $unknownSubjectCommit = ([string](Invoke-Git -Repository $testDestinationWorktree -Arguments @(
-        'commit-tree', $snapshotTree,
-        '-p', $testSubjectCommit,
-        '-m', 'Create CWBI staging snapshot',
-        '-m', $snapshotProvenance
-    )).Output[0]).Trim()
-    Invoke-Git -Repository $testDestinationWorktree -Arguments @('update-ref', 'refs/heads/snapshot/sanitized', $unknownSubjectCommit, $testSubjectCommit) | Out-Null
-    $testDestinationParameters.ExpectedCurrentCommit = $unknownSubjectCommit
-    Assert-Throws -MessagePattern 'generated snapshot history' -FailureMessage 'A snapshot commit with an unapproved environment subject was accepted into the history.' -Action {
-        Publish-CwbiSnapshotToWorktree @testDestinationParameters | Out-Null
-    }
-    Invoke-Git -Repository $sourceRepository -Arguments @('worktree', 'remove', '--force', $testDestinationWorktree) | Out-Null
     Invoke-Git -Repository $sourceRepository -Arguments @('branch', '-D', 'snapshot/sanitized') | Out-Null
 
     $validRootCommit = $targetMetadata.Commit
