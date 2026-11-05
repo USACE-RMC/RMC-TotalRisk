@@ -8,6 +8,9 @@ $devCommit = 'd' * 40
 $testCommit = 'e' * 40
 $mergeCommit = 'f' * 40
 $pullUrl = "https://github.com/$cwbiRepository/pull/7"
+$sourceCommit = 'a' * 40
+$sourceLine = "Source commit: $sourceCommit"
+$snapshotMessage = "Create CWBI development snapshot`n`n$sourceLine`nSource tree: $('b' * 40)"
 
 function Assert-Condition {
     param(
@@ -57,6 +60,8 @@ function Reset-FakeGitHub {
         OpenPulls = @()
         MergeParents = @($testCommit, $devCommit)
         TestAfterMerge = $mergeCommit
+        DevMessage = $snapshotMessage
+        MergeMessage = "Promote cwbi-dev $($devCommit.Substring(0, 12)) to cwbi-test`n`n$sourceLine"
         FailMerge = $false
         Merged = $false
     }
@@ -78,7 +83,6 @@ function global:gh {
     $global:FakeGhCalls.Add($line)
     $global:LASTEXITCODE = 0
     $repo = [regex]::Escape($state.Repository)
-    $snapshotMessage = "Create CWBI development snapshot`n`nSource commit: $('a' * 40)`nSource tree: $('b' * 40)"
 
     switch -Regex ($line) {
         '^auth status' { return 'Logged in to github.com' }
@@ -90,16 +94,19 @@ function global:gh {
         "^api repos/$repo/compare/cwbi-test\.\.\.$($state.DevCommit)$" {
             return ConvertTo-FakeJson @{
                 ahead_by = $state.AheadBy
-                commits = @(@{ sha = $state.DevCommit; commit = @{ message = $snapshotMessage } })
+                commits = @(@{ sha = $state.DevCommit; commit = @{ message = $state.DevMessage } })
                 files = @(@{ status = 'modified'; filename = 'TotalRisk.API/Program.cs' })
             }
         }
         "^api repos/$repo/compare/$($state.DevCommit)\.\.\.$($state.TestCommit)$" {
             return ConvertTo-FakeJson @{ files = @($state.TestOnlyFiles) }
         }
-        "^api repos/$repo/commits/$($state.DevCommit)$" { return ConvertTo-FakeJson @{ commit = @{ message = $snapshotMessage } } }
+        "^api repos/$repo/commits/$($state.DevCommit)$" { return ConvertTo-FakeJson @{ commit = @{ message = $state.DevMessage } } }
         "^api repos/$repo/commits/$($state.MergeCommit)$" {
-            return ConvertTo-FakeJson @{ parents = @($state.MergeParents | ForEach-Object { @{ sha = $_ } }) }
+            return ConvertTo-FakeJson @{
+                parents = @($state.MergeParents | ForEach-Object { @{ sha = $_ } })
+                commit = @{ message = $state.MergeMessage }
+            }
         }
         '^pr list' { return ConvertTo-FakeJson @($state.OpenPulls) }
         '^pr create' { return $state.PullUrl }
@@ -157,6 +164,36 @@ try {
     Assert-Condition ($mergeCalls[0] -match '--merge') 'The promotion did not merge with a merge commit.'
     Assert-Condition ($mergeCalls[0] -match "--match-head-commit $devCommit") 'The promotion merge is not pinned to the reviewed cwbi-dev commit.'
     Assert-Condition ($global:FakePromptCount -eq 1) 'The promotion did not ask for confirmation exactly once.'
+
+    <#
+        Protects: the merge commit message carries the cwbi-dev snapshot's Source commit line.
+        If broken: the test workflow stops at "Resolve upstream source provenance" and nothing
+        reaches the test environment.
+    #>
+    Reset-FakeGitHub
+    Invoke-Promotion
+    $mergeCall = (Get-FakeCalls -Prefix 'pr merge')[0]
+    Assert-Condition ($mergeCall.EndsWith("--body $sourceLine")) 'The promotion merge does not set the Source commit line as the merge commit body.'
+    Assert-Condition ($mergeCall -match "--subject Promote cwbi-dev $($devCommit.Substring(0, 12)) to cwbi-test") 'The promotion merge does not name the promoted cwbi-dev commit in its subject.'
+
+    <#
+        Protects: a cwbi-dev snapshot without a Source commit line is never promoted.
+        If broken: the user would confirm a promotion whose test build is certain to fail.
+    #>
+    Reset-FakeGitHub
+    $global:FakeGh.DevMessage = 'Create CWBI development snapshot'
+    Assert-Throws -MessagePattern "does not carry exactly one 'Source commit: <sha>' line" -FailureMessage 'A cwbi-dev snapshot without a Source commit line was offered for promotion.' -Action { Invoke-Promotion }
+    Assert-Condition ($global:FakePromptCount -eq 0) 'The user was asked to confirm a promotion of a snapshot without a Source commit line.'
+    Assert-Condition ((Get-FakeCalls -Prefix 'pr ').Count -eq 0) 'A pull request action ran for a snapshot without a Source commit line.'
+
+    <#
+        Protects: the run fails when the merge commit lacks the Source commit line, for example
+        when GitHub's default merge message was used.
+        If broken: the script would report success while the test build fails.
+    #>
+    Reset-FakeGitHub
+    $global:FakeGh.MergeMessage = "Merge pull request #7 from $cwbiRepository/cwbi-dev`n`nPromote cwbi-dev to cwbi-test"
+    Assert-Throws -MessagePattern 'does not carry exactly the line' -FailureMessage 'A merge commit without the Source commit line was reported as a successful promotion.' -Action { Invoke-Promotion }
 
     <#
         Protects: a promotion pull request left open by an earlier, interrupted run is reused.
