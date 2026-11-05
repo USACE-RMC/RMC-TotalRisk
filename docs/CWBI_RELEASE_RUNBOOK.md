@@ -194,16 +194,18 @@ The script:
 1. checks that `gh` is installed and signed in;
 2. reads `cwbi-dev` and `cwbi-test`, and stops if there is nothing to promote or if `cwbi-test` has changes that `cwbi-dev` does not;
 3. shows the `cwbi-dev` commit to be promoted with the source commit it came from, each snapshot being promoted, and the changed files;
-4. after you type exactly `PROMOTE`, opens a pull request from `cwbi-dev` into `cwbi-test` (or reuses one already open) and merges it with a merge commit;
-5. checks that `cwbi-test` now ends at that merge commit, and prints the pull request and the link to the test workflow runs.
+4. after you type exactly `PROMOTE`, opens a pull request from `cwbi-dev` into `cwbi-test` (or reuses one already open) and merges it with a merge commit whose message carries the snapshot's `Source commit:` line;
+5. checks that the merge commit carries that line and that `cwbi-test` now ends at it, and prints the pull request and the link to the test workflow runs.
 
 The merge only succeeds if `cwbi-dev` is still at the commit the script showed you. If someone published to dev after you checked it, the merge is refused and nothing reaches test; check the new dev deployment and run the script again.
 
-Always promote with this script, or with a pull request merged using **Create a merge commit**. Squash or rebase merges create new commits on `cwbi-test`, after which every promotion conflicts.
+Always promote with this script; never merge `cwbi-dev` into `cwbi-test` in GitHub. The test workflow reads the `Source commit:` line from the commit it builds, and GitHub's own merge message has none, so a hand merge stops the test build at "Resolve upstream source provenance". A squash or rebase merge also creates new commits on `cwbi-test`, after which every promotion conflicts.
 
 | Message | What to do |
 |---|---|
 | `The GitHub CLI (gh) is not installed` or `gh auth status ... failed` | Install the GitHub CLI and run `gh auth login`. |
 | `Nothing to promote` | `cwbi-test` already has the current `cwbi-dev`. Publish to dev first. |
 | `cwbi-test has changes that cwbi-dev does not` | Something was committed to `cwbi-test` directly. Ask the repository administrators before promoting. |
+| `does not carry exactly one 'Source commit: <sha>' line` | The newest `cwbi-dev` commit is not a publisher snapshot. Publish to dev again before promoting. |
+| `Merge commit ... does not carry exactly the line` | The merge went through without the source line. The test build will fail; publish to dev again and promote again. |
 | `gh pr merge ... failed` | `cwbi-dev` moved after the review, or you lack merge permission. The pull request stays open; run the script again to reuse it. |

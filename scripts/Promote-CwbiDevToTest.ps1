@@ -53,6 +53,12 @@ function Get-PromotionSourceLine {
     return $line[0].Trim()
 }
 
+function Get-PromotionProvenanceLines {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Message)
+
+    return , @($Message -split "`r?`n" | Where-Object { $_ -match '^\s*source\s+commit\s*:' })
+}
+
 Write-Host '[1/5] Check GitHub access'
 if (-not (Get-Command -Name gh -ErrorAction SilentlyContinue)) {
     throw 'The GitHub CLI (gh) is not installed. Install it and run gh auth login before promoting.'
@@ -77,7 +83,12 @@ if ($testOnlyFiles.Count -gt 0) {
 
 Write-Host '[3/5] Review the promotion'
 $devMessage = [string](Invoke-PromotionGhJson -Arguments @('api', "repos/$repository/commits/$devCommit")).commit.message
-Write-Host "Promote ${sourceBranch}: $devCommit ($(Get-PromotionSourceLine -Message $devMessage))"
+$devProvenance = Get-PromotionProvenanceLines -Message $devMessage
+if ($devProvenance.Count -ne 1 -or $devProvenance[0] -cnotmatch '^Source commit: [0-9a-f]{40}$') {
+    throw "The $sourceBranch snapshot $devCommit does not carry exactly one 'Source commit: <sha>' line, so the test build could not record its source. Nothing was changed. Publish a new snapshot to $sourceBranch before promoting."
+}
+$sourceLine = [string]$devProvenance[0]
+Write-Host "Promote ${sourceBranch}: $devCommit ($sourceLine)"
 Write-Host "Into ${targetBranch}:   $testCommit"
 Write-Host "Snapshots to promote ($($promotion.ahead_by)):"
 foreach ($commit in @($promotion.commits)) {
@@ -109,7 +120,7 @@ if ($openPulls.Count -gt 0) {
     $pullUrl = [string]$openPulls[0].url
 }
 else {
-    $body = "Promotes $sourceBranch at $devCommit to $targetBranch.`n`n$(Get-PromotionSourceLine -Message $devMessage)"
+    $body = "Promotes $sourceBranch at $devCommit to $targetBranch.`n`n$sourceLine"
     $createOutput = Invoke-PromotionGh -Arguments @(
         'pr', 'create', '--repo', $repository, '--base', $targetBranch, '--head', $sourceBranch,
         '--title', "Promote $sourceBranch to $targetBranch", '--body', $body
@@ -118,7 +129,8 @@ else {
     Write-Host "Opened $pullUrl"
 }
 Invoke-PromotionGh -Arguments @(
-    'pr', 'merge', $pullUrl, '--repo', $repository, '--merge', '--match-head-commit', $devCommit
+    'pr', 'merge', $pullUrl, '--repo', $repository, '--merge', '--match-head-commit', $devCommit,
+    '--subject', "Promote $sourceBranch $($devCommit.Substring(0, 12)) to $targetBranch", '--body', $sourceLine
 ) | Out-Null
 
 Write-Host '[5/5] Verify the merge'
@@ -127,9 +139,14 @@ if ([string]$merged.state -cne 'MERGED') {
     throw "The promotion pull request $pullUrl is $($merged.state), not merged."
 }
 $mergeCommit = [string]$merged.mergeCommit.oid
-$parents = @((Invoke-PromotionGhJson -Arguments @('api', "repos/$repository/commits/$mergeCommit")).parents | ForEach-Object { [string]$_.sha })
+$mergeDetails = Invoke-PromotionGhJson -Arguments @('api', "repos/$repository/commits/$mergeCommit")
+$parents = @($mergeDetails.parents | ForEach-Object { [string]$_.sha })
 if ($parents.Count -ne 2 -or $parents -cnotcontains $devCommit) {
     throw "Merge commit $mergeCommit is not a merge of $sourceBranch at $devCommit. Inspect $targetBranch in $repository."
+}
+$mergeProvenance = Get-PromotionProvenanceLines -Message ([string]$mergeDetails.commit.message)
+if ($mergeProvenance.Count -ne 1 -or $mergeProvenance[0] -cne $sourceLine) {
+    throw "Merge commit $mergeCommit does not carry exactly the line '$sourceLine', so the test build will stop at 'Resolve upstream source provenance'. Inspect $targetBranch in $repository."
 }
 $currentTestCommit = Get-PromotionBranchCommit -Branch $targetBranch
 if ($currentTestCommit -cne $mergeCommit) {
