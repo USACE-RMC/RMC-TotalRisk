@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$TargetWorktree,
     [Parameter(Mandatory)][ValidatePattern('^(cwbi-dev|snapshot/sanitized)$')][string]$ExpectedTargetBranch,
     [Parameter(Mandatory)][ValidatePattern('^([0-9a-fA-F]{40}|unborn)$')][string]$ExpectedTargetCommit,
+    [Parameter(Mandatory)][ValidatePattern('^cwbi-(dev|test)$')][string]$DestinationBranch,
     [string]$EvidenceDirectory,
     [switch]$KeepStaging
 )
@@ -228,7 +229,7 @@ try {
         -EvidenceDirectory $EvidenceDirectory `
         -ExpectedCurrentBranch $ExpectedTargetBranch `
         -ExpectedCurrentCommit $ExpectedTargetCommit `
-        -DestinationBranchName 'cwbi-dev' `
+        -DestinationBranchName $DestinationBranch `
         -ExpectedCommonGitDirectory $sourceCommonGitDirectory
 
     Write-Host "Prepared local $($targetResult.LocalBranch) commit $($targetResult.Commit) for $($targetResult.Branch) from $($export.SourceCommit)."

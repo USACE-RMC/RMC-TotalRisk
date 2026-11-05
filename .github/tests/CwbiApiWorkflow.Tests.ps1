@@ -1,4 +1,5 @@
 param(
+    [ValidateSet('dev', 'test', IgnoreCase = $false)][string]$Environment,
     [string]$WorkflowRevision,
     [string]$WorkflowPath,
     [switch]$ContractOnly
@@ -8,11 +9,30 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$workflowRepositoryPath = '.github/workflows/cwbi-build-push-api.yml'
-$workflowSourcePath = Join-Path $repositoryRoot $workflowRepositoryPath
+$environmentSettings = [ordered]@{
+    dev = [pscustomobject]@{
+        Name = 'dev'
+        WorkflowRepositoryPath = '.github/workflows/cwbi-build-push-api-dev.yml'
+        WorkflowName = 'Build/Push RMC-TotalRisk-dev'
+        Branch = 'cwbi-dev'
+        JobName = 'build-push-dev'
+        ConcurrencyGroup = 'cwbi-total-risk-dev'
+        AwsAccountId = '718787032875'
+        DeploymentTag = 'dev'
+    }
+    test = [pscustomobject]@{
+        Name = 'test'
+        WorkflowRepositoryPath = '.github/workflows/cwbi-build-push-api-test.yml'
+        WorkflowName = 'Build/Push RMC-TotalRisk-test'
+        Branch = 'cwbi-test'
+        JobName = 'build-push-test'
+        ConcurrencyGroup = 'cwbi-total-risk-test'
+        AwsAccountId = '276847049069'
+        DeploymentTag = 'test'
+    }
+}
 $nuGetAuditHelperPath = Join-Path $repositoryRoot '.github\scripts\CwbiNuGetAudit.ps1'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "total-risk-api-workflow-$([Guid]::NewGuid())"
-$testWorkflowPath = Join-Path $testRoot 'workflow.yml'
 $yqImage = 'mikefarah/yq@sha256:11a1f0b604b13dbbdc662260d8db6f644b22d8553122a25c1b5b2e8713ca6977'
 $bashPath = if ($IsWindows) { 'C:\Program Files\Git\bin\bash.exe' } else { (Get-Command bash -ErrorAction Stop).Source }
 
@@ -55,34 +75,39 @@ function ConvertFrom-WorkflowYaml {
 }
 
 function Assert-CwbiWorkflowContract {
-    param([Parameter(Mandatory)][string]$Path)
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][object]$Settings
+    )
 
     $workflow = ConvertFrom-WorkflowYaml -Path $Path
+    Assert-Condition ($workflow.name -ceq $Settings.WorkflowName) "Workflow name must be '$($Settings.WorkflowName)'."
 
     $triggerNames = @($workflow.on.PSObject.Properties.Name)
     Assert-Condition ($triggerNames -ccontains 'push') 'Workflow must run on pushes.'
     Assert-Condition ($triggerNames -ccontains 'workflow_dispatch') 'Workflow must support manual dispatch.'
     $pushBranches = @($workflow.on.push.branches)
-    Assert-Condition ($pushBranches.Count -eq 1 -and $pushBranches[0] -ceq 'cwbi-dev') 'Push trigger must be limited to cwbi-dev.'
-    Assert-Condition (-not ($workflow.on.push.PSObject.Properties.Name -ccontains 'paths')) 'Every push to cwbi-dev must trigger; push path filters are forbidden.'
+    Assert-Condition ($pushBranches.Count -eq 1 -and $pushBranches[0] -ceq $Settings.Branch) "Push trigger must be limited to $($Settings.Branch)."
+    Assert-Condition (-not ($workflow.on.push.PSObject.Properties.Name -ccontains 'paths')) "Every push to $($Settings.Branch) must trigger; push path filters are forbidden."
 
-    Assert-Condition ($workflow.concurrency.group -ceq 'cwbi-total-risk-dev') 'Concurrency must serialize dst-total-risk deployments.'
+    Assert-Condition ($workflow.concurrency.group -ceq $Settings.ConcurrencyGroup) 'Concurrency must serialize dst-total-risk deployments per environment.'
     Assert-Condition ($workflow.concurrency.'cancel-in-progress' -eq $false) 'An in-progress deployment must not be cancelled.'
     Assert-Condition ($workflow.permissions.'id-token' -ceq 'write') 'Workflow must permit OIDC token issuance.'
     Assert-Condition ($workflow.permissions.contents -ceq 'read') 'Workflow contents permission must be read-only.'
     $permissionNames = @($workflow.permissions.PSObject.Properties.Name | Sort-Object)
     Assert-Condition (($permissionNames -join ',') -ceq 'contents,id-token') 'Workflow must not request additional GitHub permissions.'
 
-    Assert-Condition ($workflow.env.AWS_ACCOUNT_ID -ceq '718787032875') 'Workflow AWS account is incorrect.'
+    Assert-Condition ($workflow.env.AWS_ACCOUNT_ID -ceq $Settings.AwsAccountId) 'Workflow AWS account is incorrect.'
     Assert-Condition ($workflow.env.AWS_REGION -ceq 'us-gov-west-1') 'Workflow AWS region is incorrect.'
-    Assert-Condition ($workflow.env.ROLE_TO_ASSUME -ceq 'arn:aws-us-gov:iam::718787032875:role/github-actions-ecr-dst-total-risk') 'Workflow must assume the dst-total-risk ECR role.'
+    Assert-Condition ($workflow.env.ROLE_TO_ASSUME -ceq "arn:aws-us-gov:iam::$($Settings.AwsAccountId):role/github-actions-ecr-dst-total-risk") 'Workflow must assume the dst-total-risk ECR role in its environment account.'
     Assert-Condition ($workflow.env.ECR_REPOSITORY -ceq 'dst-total-risk') 'Workflow ECR repository is incorrect.'
-    Assert-Condition ($workflow.env.DEPLOYMENT_TAG -ceq 'dev') 'CWBI deployment tag must remain dev.'
+    Assert-Condition ($workflow.env.DEPLOYMENT_TAG -ceq $Settings.DeploymentTag) "CWBI deployment tag must be $($Settings.DeploymentTag)."
     Assert-Condition ($workflow.env.LOCAL_IMAGE -ceq 'dst-total-risk:deployment-candidate') 'Local candidate image name is incorrect.'
 
     $jobProperties = @($workflow.jobs.PSObject.Properties)
-    $job = $workflow.jobs.'build-push-dev'
-    Assert-Condition ($job.if -ceq "github.ref == 'refs/heads/cwbi-dev'") 'Manual dispatch must also be guarded to cwbi-dev.'
+    $job = $workflow.jobs.($Settings.JobName)
+    Assert-Condition ($null -ne $job) "Workflow must contain the $($Settings.JobName) job."
+    Assert-Condition ($job.if -ceq "github.ref == 'refs/heads/$($Settings.Branch)'") "Manual dispatch must also be guarded to $($Settings.Branch)."
     Assert-Condition ($job.'timeout-minutes' -gt 0 -and $job.'timeout-minutes' -le 60) 'Job timeout must be between 1 and 60 minutes.'
     $steps = @($job.steps)
 
@@ -145,7 +170,12 @@ function Assert-CwbiWorkflowContract {
     foreach ($reviewedAction in $reviewedActions.Keys) {
         Assert-Condition ($actionOccurrences.ContainsKey($reviewedAction) -and $actionOccurrences[$reviewedAction] -eq 1) "Reviewed action '$reviewedAction' must appear exactly once."
     }
-    Assert-Condition ($jobProperties.Count -eq 1 -and $jobProperties[0].Name -ceq 'build-push-dev') 'Workflow must contain only the reviewed build-push-dev job.'
+    Assert-Condition ($jobProperties.Count -eq 1 -and $jobProperties[0].Name -ceq $Settings.JobName) "Workflow must contain only the reviewed $($Settings.JobName) job."
+
+    $workflowTestRun = [string]$steps[$workflowTestIndex].run
+    Assert-Condition ($workflowTestRun.Contains('./.github/tests/CwbiApiWorkflow.Tests.ps1', [StringComparison]::Ordinal)) 'Workflow must run its own contract tests.'
+    Assert-Condition ($workflowTestRun.Contains("-Environment $($Settings.Name)", [StringComparison]::Ordinal)) "Workflow contract tests must run for the $($Settings.Name) environment."
+    Assert-Condition ($workflowTestRun.Contains('-WorkflowRevision $env:GITHUB_SHA', [StringComparison]::Ordinal)) 'Workflow contract tests must read the workflow from the exact snapshot revision.'
 
     Assert-Condition ($steps[$setupDotnetIndex].with.'dotnet-version' -ceq '10.0.x') 'Workflow must install the .NET 10 SDK.'
     $restoreRun = [string]$steps[$restoreIndex].run
@@ -260,7 +290,7 @@ function Assert-ProvenanceParserFixture {
         [string]$ExpectedRevision
     )
 
-    $fixtureDirectory = Join-Path $testRoot "provenance-$Name"
+    $fixtureDirectory = Join-Path $fixtureRoot "provenance-$Name"
     New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
     $scriptPath = Join-Path $fixtureDirectory 'run.sh'
     $outputPath = Join-Path $fixtureDirectory 'github-output.txt'
@@ -313,7 +343,7 @@ function Assert-EcrPreflightFixture {
         [bool]$RequireProcessFailure = $true
     )
 
-    $fixtureDirectory = Join-Path $testRoot "ecr-$Name"
+    $fixtureDirectory = Join-Path $fixtureRoot "ecr-$Name"
     New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
     $scriptPath = Join-Path $fixtureDirectory 'run.ps1'
     $responsePath = Join-Path $fixtureDirectory 'response.json'
@@ -337,7 +367,7 @@ function aws {
 
     $fixtureEnvironment = @{
         ECR_REPOSITORY = 'dst-total-risk'
-        DEPLOYMENT_TAG = 'dev'
+        DEPLOYMENT_TAG = $settings.DeploymentTag
         FAKE_AWS_EXIT_CODE = [string]$AwsExitCode
         FAKE_AWS_RESPONSE = $responsePath
         FAKE_CALL_LOG = $callLogPath
@@ -385,7 +415,7 @@ function Invoke-BashStepFixture {
         [hashtable]$Environment = @{}
     )
 
-    $fixtureDirectory = Join-Path $testRoot "bash-$Name"
+    $fixtureDirectory = Join-Path $fixtureRoot "bash-$Name"
     New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
     $scriptPath = Join-Path $fixtureDirectory 'run.sh'
     $callLogPath = Join-Path $fixtureDirectory 'calls.txt'
@@ -416,7 +446,7 @@ aws() {
     *"--filter tagStatus=TAGGED"*) printf '%s\n' "$FAKE_EXISTING_DIGEST" ;;
     *"imageTag=run-"*) printf '%s\n' "$FAKE_CANDIDATE_DIGEST" ;;
     *"imageTag=sha-"*) printf '%s\n' "$FAKE_COMMIT_DIGEST" ;;
-    *"imageTag=dev"*) printf '%s\n' "$FAKE_DEPLOYMENT_DIGEST" ;;
+    *"imageTag=$DEPLOYMENT_TAG"*) printf '%s\n' "$FAKE_DEPLOYMENT_DIGEST" ;;
     *) printf 'None\n' ;;
   esac
 }
@@ -431,7 +461,7 @@ aws() {
         GITHUB_SHA = '2222222222222222222222222222222222222222'
         GITHUB_RUN_ID = '12345'
         GITHUB_RUN_ATTEMPT = '2'
-        DEPLOYMENT_TAG = 'dev'
+        DEPLOYMENT_TAG = $settings.DeploymentTag
         IMAGE_URI = 'registry.example/dst-total-risk'
         COMMIT_TAG = 'sha-2222222222222222222222222222222222222222'
         CANDIDATE_DIGEST = $candidateDigest
@@ -502,7 +532,7 @@ function Assert-PublishFixture {
     Assert-Condition ($actualCallLog -ceq $expectedCallLog) "Publish fixture '$Name' call order mismatch.`nExpected:`n$expectedCallLog`nActual:`n$actualCallLog"
     Assert-Condition ($result.Output -ceq $ExpectedOutput) "Publish fixture '$Name' emitted unexpected GitHub outputs."
     Assert-Condition (-not $actualCallLog.Contains(':latest', [StringComparison]::OrdinalIgnoreCase)) "Publish fixture '$Name' used latest."
-    $deploymentCalls = @($actualCalls | Where-Object { $_.EndsWith(':dev', [StringComparison]::Ordinal) })
+    $deploymentCalls = @($actualCalls | Where-Object { $_.EndsWith(":$($settings.DeploymentTag)", [StringComparison]::Ordinal) })
     if ($ExpectDeploymentAttempt) {
         Assert-Condition ($deploymentCalls.Count -gt 0) "Publish fixture '$Name' did not attempt the deployment tag."
     }
@@ -533,9 +563,9 @@ function Assert-DigestFixture {
     $candidateDigest = "sha256:$('a' * 64)"
     $awsCalls = @($result.Calls | Where-Object { $_.StartsWith('aws|ecr|describe-images|', [StringComparison]::Ordinal) })
     $hasCommitQuery = @($awsCalls | Where-Object { $_.Contains("imageTag=$commitTag", [StringComparison]::Ordinal) }).Count -eq 1
-    $hasDeploymentQuery = @($awsCalls | Where-Object { $_.Contains('imageTag=dev', [StringComparison]::Ordinal) }).Count -eq 1
+    $hasDeploymentQuery = @($awsCalls | Where-Object { $_.Contains("imageTag=$($settings.DeploymentTag)", [StringComparison]::Ordinal) }).Count -eq 1
     $semanticSuccess = $result.ExitCode -eq 0 -and $awsCalls.Count -eq 2 -and $hasCommitQuery -and $hasDeploymentQuery
-    $semanticSuccess = $semanticSuccess -and $result.Summary.Contains("Published registry.example/dst-total-risk:$commitTag and registry.example/dst-total-risk:dev at $candidateDigest", [StringComparison]::Ordinal)
+    $semanticSuccess = $semanticSuccess -and $result.Summary.Contains("Published registry.example/dst-total-risk:$commitTag and registry.example/dst-total-risk:$($settings.DeploymentTag) at $candidateDigest", [StringComparison]::Ordinal)
     if ($ShouldSucceed) {
         Assert-Condition $semanticSuccess "Digest verification rejected valid fixture '$Name': $($result.ProcessOutput -join ' ')"
     }
@@ -556,12 +586,12 @@ function Assert-MutationRejected {
 
     $mutated = (($Baseline | ConvertTo-Json -Depth 100) | ConvertFrom-Json)
     & $Mutate $mutated
-    $mutatedPath = Join-Path $testRoot "mutation-$Name.json"
+    $mutatedPath = Join-Path $fixtureRoot "mutation-$Name.json"
     [System.IO.File]::WriteAllText($mutatedPath, ($mutated | ConvertTo-Json -Depth 100), [System.Text.UTF8Encoding]::new($false))
 
     $rejected = $false
     try {
-        $null = Assert-CwbiWorkflowContract -Path $mutatedPath
+        $null = Assert-CwbiWorkflowContract -Path $mutatedPath -Settings $settings
     }
     catch {
         $rejected = $true
@@ -579,19 +609,19 @@ function Assert-PublishMutationRejected {
     )
 
     $mutated = (($Baseline | ConvertTo-Json -Depth 100) | ConvertFrom-Json)
-    $publishIndex = Get-StepIndex @($mutated.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'
-    $originalRun = [string]$mutated.jobs.'build-push-dev'.steps[$publishIndex].run
+    $publishIndex = Get-StepIndex @($mutated.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'
+    $originalRun = [string]$mutated.jobs.($settings.JobName).steps[$publishIndex].run
     & $Mutate $mutated
-    $mutatedRun = [string]$mutated.jobs.'build-push-dev'.steps[$publishIndex].run
+    $mutatedRun = [string]$mutated.jobs.($settings.JobName).steps[$publishIndex].run
     Assert-Condition ($mutatedRun -cne $originalRun) "Publish mutation '$Name' did not change the run script."
 
-    $mutatedPath = Join-Path $testRoot "mutation-$Name.json"
+    $mutatedPath = Join-Path $fixtureRoot "mutation-$Name.json"
     [System.IO.File]::WriteAllText($mutatedPath, ($mutated | ConvertTo-Json -Depth 100), [System.Text.UTF8Encoding]::new($false))
 
     $rejected = $false
     try {
-        $validated = Assert-CwbiWorkflowContract -Path $mutatedPath
-        $validatedSteps = @($validated.jobs.'build-push-dev'.steps)
+        $validated = Assert-CwbiWorkflowContract -Path $mutatedPath -Settings $settings
+        $validatedSteps = @($validated.jobs.($settings.JobName).steps)
         $validatedRun = [string]$validatedSteps[(Get-StepIndex -Steps $validatedSteps -Name 'Publish commit and deployment tags')].run
         Assert-PublishFixture -RunScript $validatedRun -Name "mutation-$Name" -ShouldSucceed $true -ExpectedCalls $ExpectedCalls -ExpectedOutput $ExpectedOutput -ExpectDeploymentAttempt $true
     }
@@ -605,238 +635,257 @@ if ($WorkflowRevision -and $WorkflowPath) {
     throw 'Specify either WorkflowRevision or WorkflowPath, not both.'
 }
 
+if (($WorkflowRevision -or $WorkflowPath) -and -not $Environment) {
+    throw 'Specify -Environment when testing a single workflow revision or path.'
+}
+$selectedSettings = if ($Environment) { @($environmentSettings[$Environment]) } else { @($environmentSettings.Values) }
+
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 
 try {
-    if ($WorkflowRevision) {
-        $workflowContent = & git -C $repositoryRoot show "${WorkflowRevision}:$workflowRepositoryPath"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Unable to read $workflowRepositoryPath from revision $WorkflowRevision."
+    foreach ($settings in $selectedSettings) {
+        $fixtureRoot = Join-Path $testRoot $settings.Name
+        New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
+        $otherSettings = @($environmentSettings.Values | Where-Object { $_.Name -cne $settings.Name })[0]
+        $workflowRepositoryPath = $settings.WorkflowRepositoryPath
+        $workflowSourcePath = Join-Path $repositoryRoot $workflowRepositoryPath
+        $testWorkflowPath = Join-Path $fixtureRoot 'workflow.yml'
+        if ($WorkflowRevision) {
+            $workflowContent = & git -C $repositoryRoot show "${WorkflowRevision}:$workflowRepositoryPath"
+            if ($LASTEXITCODE -ne 0) {
+                throw "Unable to read $workflowRepositoryPath from revision $WorkflowRevision."
+            }
+            [System.IO.File]::WriteAllLines($testWorkflowPath, @($workflowContent), [System.Text.UTF8Encoding]::new($false))
         }
-        [System.IO.File]::WriteAllLines($testWorkflowPath, @($workflowContent), [System.Text.UTF8Encoding]::new($false))
-    }
-    elseif ($WorkflowPath) {
-        Copy-Item -LiteralPath (Resolve-Path -LiteralPath $WorkflowPath).Path -Destination $testWorkflowPath
-    }
-    else {
-        if (-not (Test-Path -LiteralPath $workflowSourcePath)) {
-            throw "CWBI API workflow is missing: $workflowSourcePath"
+        elseif ($WorkflowPath) {
+            Copy-Item -LiteralPath (Resolve-Path -LiteralPath $WorkflowPath).Path -Destination $testWorkflowPath
         }
-        Copy-Item -LiteralPath $workflowSourcePath -Destination $testWorkflowPath
-    }
+        else {
+            if (-not (Test-Path -LiteralPath $workflowSourcePath)) {
+                throw "CWBI API workflow is missing: $workflowSourcePath"
+            }
+            Copy-Item -LiteralPath $workflowSourcePath -Destination $testWorkflowPath
+        }
 
-    $baseline = Assert-CwbiWorkflowContract -Path $testWorkflowPath
-    if ($ContractOnly) {
-        'RMC-TotalRisk CWBI API workflow contract passed.'
-        return
-    }
+        $baseline = Assert-CwbiWorkflowContract -Path $testWorkflowPath -Settings $settings
+        if ($ContractOnly) {
+            "RMC-TotalRisk CWBI API $($settings.Name) workflow contract passed."
+            continue
+        }
 
-    if (-not (Test-Path -LiteralPath $nuGetAuditHelperPath -PathType Leaf)) {
-        throw "Shared NuGet audit helper is missing: $nuGetAuditHelperPath"
-    }
-    . $nuGetAuditHelperPath
-    $warningOnlyRejected = $false
-    try {
-        Assert-CwbiNuGetAuditClean -AuditOutput @('warning: vulnerability audit result unavailable')
-    }
-    catch {
-        $warningOnlyRejected = $true
-    }
-    Assert-Condition $warningOnlyRejected 'Shared workflow NuGet audit semantics accepted warning-only output.'
+        if (-not (Test-Path -LiteralPath $nuGetAuditHelperPath -PathType Leaf)) {
+            throw "Shared NuGet audit helper is missing: $nuGetAuditHelperPath"
+        }
+        . $nuGetAuditHelperPath
+        $warningOnlyRejected = $false
+        try {
+            Assert-CwbiNuGetAuditClean -AuditOutput @('warning: vulnerability audit result unavailable')
+        }
+        catch {
+            $warningOnlyRejected = $true
+        }
+        Assert-Condition $warningOnlyRejected 'Shared workflow NuGet audit semantics accepted warning-only output.'
 
-    $steps = @($baseline.jobs.'build-push-dev'.steps)
-    $sourceRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Resolve upstream source provenance')].run
-    $sourceRevision = '1111111111111111111111111111111111111111'
-    Assert-ProvenanceParserFixture -RunScript $sourceRun -Name 'valid' -CommitMessage "Snapshot`n`nSource commit: $sourceRevision`n" -ShouldSucceed $true -ExpectedRevision $sourceRevision
-    foreach ($fixture in @(
-        @{ Name = 'missing'; Message = "Snapshot without provenance`n" },
-        @{ Name = 'duplicate'; Message = "Source commit: $sourceRevision`nSource commit: $sourceRevision`n" },
-        @{ Name = 'uppercase'; Message = 'Source commit: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
-        @{ Name = 'short'; Message = 'Source commit: 111111111111111111111111111111111111111' },
-        @{ Name = 'trailing'; Message = "Source commit: $sourceRevision " },
-        @{ Name = 'suffix'; Message = "Source commit: ${sourceRevision}x" },
-        @{ Name = 'malformed-prefix'; Message = "Source commit:$sourceRevision" },
-        @{ Name = 'leading-space'; Message = " Source commit: $sourceRevision" },
-        @{ Name = 'case-variant'; Message = "source commit: $sourceRevision" },
-        @{ Name = 'extra-key-space'; Message = "Source  commit: $sourceRevision" },
-        @{ Name = 'valid-plus-malformed'; Message = "Source commit: $sourceRevision`nSource commit:bad`n" }
-    )) {
-        Assert-ProvenanceParserFixture -RunScript $sourceRun -Name $fixture.Name -CommitMessage $fixture.Message -ShouldSucceed $false
-    }
+        $steps = @($baseline.jobs.($settings.JobName).steps)
+        $sourceRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Resolve upstream source provenance')].run
+        $sourceRevision = '1111111111111111111111111111111111111111'
+        Assert-ProvenanceParserFixture -RunScript $sourceRun -Name 'valid' -CommitMessage "Snapshot`n`nSource commit: $sourceRevision`n" -ShouldSucceed $true -ExpectedRevision $sourceRevision
+        foreach ($fixture in @(
+            @{ Name = 'missing'; Message = "Snapshot without provenance`n" },
+            @{ Name = 'duplicate'; Message = "Source commit: $sourceRevision`nSource commit: $sourceRevision`n" },
+            @{ Name = 'uppercase'; Message = 'Source commit: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
+            @{ Name = 'short'; Message = 'Source commit: 111111111111111111111111111111111111111' },
+            @{ Name = 'trailing'; Message = "Source commit: $sourceRevision " },
+            @{ Name = 'suffix'; Message = "Source commit: ${sourceRevision}x" },
+            @{ Name = 'malformed-prefix'; Message = "Source commit:$sourceRevision" },
+            @{ Name = 'leading-space'; Message = " Source commit: $sourceRevision" },
+            @{ Name = 'case-variant'; Message = "source commit: $sourceRevision" },
+            @{ Name = 'extra-key-space'; Message = "Source  commit: $sourceRevision" },
+            @{ Name = 'valid-plus-malformed'; Message = "Source commit: $sourceRevision`nSource commit:bad`n" }
+        )) {
+            Assert-ProvenanceParserFixture -RunScript $sourceRun -Name $fixture.Name -CommitMessage $fixture.Message -ShouldSucceed $false
+        }
 
-    $repositoryRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Verify ECR repository')].run
-    $validMutableRepository = @{
-        repositories = @(@{
-            repositoryName = 'dst-total-risk'
-            imageTagMutability = 'MUTABLE'
-            imageScanningConfiguration = @{ scanOnPush = $true }
-        })
-    } | ConvertTo-Json -Compress -Depth 10
-    Assert-EcrPreflightFixture -RunScript $repositoryRun -Name 'valid-mutable' -RepositoryJson $validMutableRepository -ShouldSucceed $true
-    $validImmutableRepository = '{"repositories":[{"repositoryName":"dst-total-risk","imageTagMutability":"IMMUTABLE_WITH_EXCLUSION","imageTagMutabilityExclusionFilters":[{"filterType":"WILDCARD","filter":"dev"}]}]}'
-    Assert-EcrPreflightFixture -RunScript $repositoryRun -Name 'valid-immutable-with-exclusion' -RepositoryJson $validImmutableRepository -ShouldSucceed $true
-    $validMinimalRepository = '{"repositories":[{"repositoryName":"dst-total-risk"}]}'
-    Assert-EcrPreflightFixture -RunScript $repositoryRun -Name 'valid-minimal' -RepositoryJson $validMinimalRepository -ShouldSucceed $true
-    foreach ($fixture in @(
-        @{ Name = 'aws-error'; Json = $validMutableRepository; AwsExitCode = 23 },
-        @{ Name = 'missing-repositories'; Json = '{}'; AwsExitCode = 0 },
-        @{ Name = 'empty-repositories'; Json = '{"repositories":[]}'; AwsExitCode = 0 },
-        @{ Name = 'wrong-repository'; Json = '{"repositories":[{"repositoryName":"not-dst-total-risk"}]}'; AwsExitCode = 0 },
-        @{ Name = 'duplicate-repository'; Json = '{"repositories":[{"repositoryName":"dst-total-risk"},{"repositoryName":"dst-total-risk"}]}'; AwsExitCode = 0 },
-        @{ Name = 'malformed-json'; Json = '{'; AwsExitCode = 0 }
-    )) {
-        Assert-EcrPreflightFixture -RunScript $repositoryRun -Name $fixture.Name -RepositoryJson $fixture.Json -AwsExitCode $fixture.AwsExitCode -ShouldSucceed $false
-    }
-    Assert-EcrPreflightFixture -RunScript '# comment-only preflight' -Name 'comment-only' -RepositoryJson $validMutableRepository -ShouldSucceed $false -RequireProcessFailure $false
-    Assert-EcrPreflightFixture -RunScript '$true' -Name 'no-op' -RepositoryJson $validMutableRepository -ShouldSucceed $false -RequireProcessFailure $false
+        $repositoryRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Verify ECR repository')].run
+        $validMutableRepository = @{
+            repositories = @(@{
+                repositoryName = 'dst-total-risk'
+                imageTagMutability = 'MUTABLE'
+                imageScanningConfiguration = @{ scanOnPush = $true }
+            })
+        } | ConvertTo-Json -Compress -Depth 10
+        Assert-EcrPreflightFixture -RunScript $repositoryRun -Name 'valid-mutable' -RepositoryJson $validMutableRepository -ShouldSucceed $true
+        $validImmutableRepository = '{"repositories":[{"repositoryName":"dst-total-risk","imageTagMutability":"IMMUTABLE_WITH_EXCLUSION","imageTagMutabilityExclusionFilters":[{"filterType":"WILDCARD","filter":"dev"}]}]}'
+        Assert-EcrPreflightFixture -RunScript $repositoryRun -Name 'valid-immutable-with-exclusion' -RepositoryJson $validImmutableRepository -ShouldSucceed $true
+        $validMinimalRepository = '{"repositories":[{"repositoryName":"dst-total-risk"}]}'
+        Assert-EcrPreflightFixture -RunScript $repositoryRun -Name 'valid-minimal' -RepositoryJson $validMinimalRepository -ShouldSucceed $true
+        foreach ($fixture in @(
+            @{ Name = 'aws-error'; Json = $validMutableRepository; AwsExitCode = 23 },
+            @{ Name = 'missing-repositories'; Json = '{}'; AwsExitCode = 0 },
+            @{ Name = 'empty-repositories'; Json = '{"repositories":[]}'; AwsExitCode = 0 },
+            @{ Name = 'wrong-repository'; Json = '{"repositories":[{"repositoryName":"not-dst-total-risk"}]}'; AwsExitCode = 0 },
+            @{ Name = 'duplicate-repository'; Json = '{"repositories":[{"repositoryName":"dst-total-risk"},{"repositoryName":"dst-total-risk"}]}'; AwsExitCode = 0 },
+            @{ Name = 'malformed-json'; Json = '{'; AwsExitCode = 0 }
+        )) {
+            Assert-EcrPreflightFixture -RunScript $repositoryRun -Name $fixture.Name -RepositoryJson $fixture.Json -AwsExitCode $fixture.AwsExitCode -ShouldSucceed $false
+        }
+        Assert-EcrPreflightFixture -RunScript '# comment-only preflight' -Name 'comment-only' -RepositoryJson $validMutableRepository -ShouldSucceed $false -RequireProcessFailure $false
+        Assert-EcrPreflightFixture -RunScript '$true' -Name 'no-op' -RepositoryJson $validMutableRepository -ShouldSucceed $false -RequireProcessFailure $false
 
-    $publishRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Publish commit and deployment tags')].run
-    $validDigest = "sha256:$('a' * 64)"
-    $publishCall = @{
-        CandidateTag = 'docker|tag|dst-total-risk:deployment-candidate|registry.example/dst-total-risk:run-12345-2'
-        CandidatePush = 'docker|push|registry.example/dst-total-risk:run-12345-2'
-        CandidateQuery = 'aws|ecr|describe-images|--repository-name|dst-total-risk|--image-ids|imageTag=run-12345-2|--query|imageDetails[0].imageDigest|--output|text'
-        CollisionQuery = "aws|ecr|describe-images|--repository-name|dst-total-risk|--filter|tagStatus=TAGGED|--query|imageDetails[?contains(imageTags, 'sha-2222222222222222222222222222222222222222')].imageDigest | [0]|--output|text"
-        CommitTag = 'docker|tag|dst-total-risk:deployment-candidate|registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222'
-        CommitPush = 'docker|push|registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222'
-        DeploymentTag = 'docker|tag|dst-total-risk:deployment-candidate|registry.example/dst-total-risk:dev'
-        DeploymentPush = 'docker|push|registry.example/dst-total-risk:dev'
-    }
-    $newCommitCalls = @(
-        $publishCall.CandidateTag,
-        $publishCall.CandidatePush,
-        $publishCall.CandidateQuery,
-        $publishCall.CollisionQuery,
-        $publishCall.CommitTag,
-        $publishCall.CommitPush,
-        $publishCall.DeploymentTag,
-        $publishCall.DeploymentPush
-    )
-    $existingCommitCalls = @(
-        $publishCall.CandidateTag,
-        $publishCall.CandidatePush,
-        $publishCall.CandidateQuery,
-        $publishCall.CollisionQuery,
-        $publishCall.DeploymentTag,
-        $publishCall.DeploymentPush
-    )
-    $expectedPublishOutput = "image_uri=registry.example/dst-total-risk`ncommit_tag=sha-2222222222222222222222222222222222222222`ncandidate_digest=$validDigest`n"
-    Assert-PublishFixture -RunScript $publishRun -Name 'new-commit' -ShouldSucceed $true -ExpectedCalls $newCommitCalls -ExpectedOutput $expectedPublishOutput -ExpectDeploymentAttempt $true
-    Assert-PublishFixture -RunScript $publishRun -Name 'existing-same-commit' -Environment @{ FAKE_EXISTING_DIGEST = $validDigest } -ShouldSucceed $true -ExpectedCalls $existingCommitCalls -ExpectedOutput $expectedPublishOutput -ExpectDeploymentAttempt $true
-    foreach ($fixture in @(
-        @{ Name = 'candidate-tag-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'tag dst-total-risk:deployment-candidate registry.example/dst-total-risk:run-12345-2' }; Calls = @($publishCall.CandidateTag); Deployment = $false },
-        @{ Name = 'candidate-push-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'push registry.example/dst-total-risk:run-12345-2' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush); Deployment = $false },
-        @{ Name = 'candidate-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = 'imageTag=run-' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
-        @{ Name = 'candidate-none'; Environment = @{ FAKE_CANDIDATE_DIGEST = 'None' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
-        @{ Name = 'candidate-empty'; Environment = @{ FAKE_CANDIDATE_DIGEST = '' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
-        @{ Name = 'candidate-uppercase'; Environment = @{ FAKE_CANDIDATE_DIGEST = "sha256:$('A' * 64)" }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
-        @{ Name = 'collision-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = '--filter tagStatus=TAGGED' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery); Deployment = $false },
-        @{ Name = 'commit-collision'; Environment = @{ FAKE_EXISTING_DIGEST = "sha256:$('b' * 64)" }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery); Deployment = $false },
-        @{ Name = 'commit-tag-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'tag dst-total-risk:deployment-candidate registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery, $publishCall.CommitTag); Deployment = $false },
-        @{ Name = 'commit-push-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'push registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery, $publishCall.CommitTag, $publishCall.CommitPush); Deployment = $false },
-        @{ Name = 'deployment-tag-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'tag dst-total-risk:deployment-candidate registry.example/dst-total-risk:dev' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery, $publishCall.CommitTag, $publishCall.CommitPush, $publishCall.DeploymentTag); Deployment = $true },
-        @{ Name = 'deployment-push-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'push registry.example/dst-total-risk:dev' }; Calls = $newCommitCalls; Deployment = $true }
-    )) {
-        Assert-PublishFixture -RunScript $publishRun -Name $fixture.Name -Environment $fixture.Environment -ShouldSucceed $false -ExpectedCalls $fixture.Calls -ExpectedOutput '' -ExpectDeploymentAttempt $fixture.Deployment
-    }
-    Assert-PublishFixture -RunScript '# comment-only publication' -Name 'comment-only' -ShouldSucceed $false -ExpectedCalls @() -ExpectedOutput '' -RequireProcessFailure $false
-    Assert-PublishFixture -RunScript 'true' -Name 'no-op' -ShouldSucceed $false -ExpectedCalls @() -ExpectedOutput '' -RequireProcessFailure $false
+        $publishRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Publish commit and deployment tags')].run
+        $validDigest = "sha256:$('a' * 64)"
+        $publishCall = @{
+            CandidateTag = 'docker|tag|dst-total-risk:deployment-candidate|registry.example/dst-total-risk:run-12345-2'
+            CandidatePush = 'docker|push|registry.example/dst-total-risk:run-12345-2'
+            CandidateQuery = 'aws|ecr|describe-images|--repository-name|dst-total-risk|--image-ids|imageTag=run-12345-2|--query|imageDetails[0].imageDigest|--output|text'
+            CollisionQuery = "aws|ecr|describe-images|--repository-name|dst-total-risk|--filter|tagStatus=TAGGED|--query|imageDetails[?contains(imageTags, 'sha-2222222222222222222222222222222222222222')].imageDigest | [0]|--output|text"
+            CommitTag = 'docker|tag|dst-total-risk:deployment-candidate|registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222'
+            CommitPush = 'docker|push|registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222'
+            DeploymentTag = "docker|tag|dst-total-risk:deployment-candidate|registry.example/dst-total-risk:$($settings.DeploymentTag)"
+            DeploymentPush = "docker|push|registry.example/dst-total-risk:$($settings.DeploymentTag)"
+        }
+        $newCommitCalls = @(
+            $publishCall.CandidateTag,
+            $publishCall.CandidatePush,
+            $publishCall.CandidateQuery,
+            $publishCall.CollisionQuery,
+            $publishCall.CommitTag,
+            $publishCall.CommitPush,
+            $publishCall.DeploymentTag,
+            $publishCall.DeploymentPush
+        )
+        $existingCommitCalls = @(
+            $publishCall.CandidateTag,
+            $publishCall.CandidatePush,
+            $publishCall.CandidateQuery,
+            $publishCall.CollisionQuery,
+            $publishCall.DeploymentTag,
+            $publishCall.DeploymentPush
+        )
+        $expectedPublishOutput = "image_uri=registry.example/dst-total-risk`ncommit_tag=sha-2222222222222222222222222222222222222222`ncandidate_digest=$validDigest`n"
+        Assert-PublishFixture -RunScript $publishRun -Name 'new-commit' -ShouldSucceed $true -ExpectedCalls $newCommitCalls -ExpectedOutput $expectedPublishOutput -ExpectDeploymentAttempt $true
+        Assert-PublishFixture -RunScript $publishRun -Name 'existing-same-commit' -Environment @{ FAKE_EXISTING_DIGEST = $validDigest } -ShouldSucceed $true -ExpectedCalls $existingCommitCalls -ExpectedOutput $expectedPublishOutput -ExpectDeploymentAttempt $true
+        foreach ($fixture in @(
+            @{ Name = 'candidate-tag-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'tag dst-total-risk:deployment-candidate registry.example/dst-total-risk:run-12345-2' }; Calls = @($publishCall.CandidateTag); Deployment = $false },
+            @{ Name = 'candidate-push-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'push registry.example/dst-total-risk:run-12345-2' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush); Deployment = $false },
+            @{ Name = 'candidate-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = 'imageTag=run-' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
+            @{ Name = 'candidate-none'; Environment = @{ FAKE_CANDIDATE_DIGEST = 'None' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
+            @{ Name = 'candidate-empty'; Environment = @{ FAKE_CANDIDATE_DIGEST = '' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
+            @{ Name = 'candidate-uppercase'; Environment = @{ FAKE_CANDIDATE_DIGEST = "sha256:$('A' * 64)" }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery); Deployment = $false },
+            @{ Name = 'collision-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = '--filter tagStatus=TAGGED' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery); Deployment = $false },
+            @{ Name = 'commit-collision'; Environment = @{ FAKE_EXISTING_DIGEST = "sha256:$('b' * 64)" }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery); Deployment = $false },
+            @{ Name = 'commit-tag-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'tag dst-total-risk:deployment-candidate registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery, $publishCall.CommitTag); Deployment = $false },
+            @{ Name = 'commit-push-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = 'push registry.example/dst-total-risk:sha-2222222222222222222222222222222222222222' }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery, $publishCall.CommitTag, $publishCall.CommitPush); Deployment = $false },
+            @{ Name = 'deployment-tag-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = "tag dst-total-risk:deployment-candidate registry.example/dst-total-risk:$($settings.DeploymentTag)" }; Calls = @($publishCall.CandidateTag, $publishCall.CandidatePush, $publishCall.CandidateQuery, $publishCall.CollisionQuery, $publishCall.CommitTag, $publishCall.CommitPush, $publishCall.DeploymentTag); Deployment = $true },
+            @{ Name = 'deployment-push-error'; Environment = @{ FAKE_DOCKER_FAIL_MATCH = "push registry.example/dst-total-risk:$($settings.DeploymentTag)" }; Calls = $newCommitCalls; Deployment = $true }
+        )) {
+            Assert-PublishFixture -RunScript $publishRun -Name $fixture.Name -Environment $fixture.Environment -ShouldSucceed $false -ExpectedCalls $fixture.Calls -ExpectedOutput '' -ExpectDeploymentAttempt $fixture.Deployment
+        }
+        Assert-PublishFixture -RunScript '# comment-only publication' -Name 'comment-only' -ShouldSucceed $false -ExpectedCalls @() -ExpectedOutput '' -RequireProcessFailure $false
+        Assert-PublishFixture -RunScript 'true' -Name 'no-op' -ShouldSucceed $false -ExpectedCalls @() -ExpectedOutput '' -RequireProcessFailure $false
 
-    $digestRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Verify published image digest')].run
-    Assert-DigestFixture -RunScript $digestRun -Name 'matching' -ShouldSucceed $true
-    foreach ($fixture in @(
-        @{ Name = 'commit-mismatch'; Environment = @{ FAKE_COMMIT_DIGEST = "sha256:$('b' * 64)" } },
-        @{ Name = 'deployment-mismatch'; Environment = @{ FAKE_DEPLOYMENT_DIGEST = "sha256:$('b' * 64)" } },
-        @{ Name = 'none-digests'; Environment = @{ CANDIDATE_DIGEST = 'None'; FAKE_COMMIT_DIGEST = 'None'; FAKE_DEPLOYMENT_DIGEST = 'None' } },
-        @{ Name = 'empty-digests'; Environment = @{ CANDIDATE_DIGEST = ''; FAKE_COMMIT_DIGEST = ''; FAKE_DEPLOYMENT_DIGEST = '' } },
-        @{ Name = 'commit-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = 'imageTag=sha-' } },
-        @{ Name = 'deployment-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = 'imageTag=dev' } }
-    )) {
-        Assert-DigestFixture -RunScript $digestRun -Name $fixture.Name -Environment $fixture.Environment -ShouldSucceed $false
-    }
-    Assert-DigestFixture -RunScript '# comment-only digest verification' -Name 'comment-only' -ShouldSucceed $false -RequireProcessFailure $false
-    Assert-DigestFixture -RunScript 'true' -Name 'no-op' -ShouldSucceed $false -RequireProcessFailure $false
+        $digestRun = [string]$steps[(Get-StepIndex -Steps $steps -Name 'Verify published image digest')].run
+        Assert-DigestFixture -RunScript $digestRun -Name 'matching' -ShouldSucceed $true
+        foreach ($fixture in @(
+            @{ Name = 'commit-mismatch'; Environment = @{ FAKE_COMMIT_DIGEST = "sha256:$('b' * 64)" } },
+            @{ Name = 'deployment-mismatch'; Environment = @{ FAKE_DEPLOYMENT_DIGEST = "sha256:$('b' * 64)" } },
+            @{ Name = 'none-digests'; Environment = @{ CANDIDATE_DIGEST = 'None'; FAKE_COMMIT_DIGEST = 'None'; FAKE_DEPLOYMENT_DIGEST = 'None' } },
+            @{ Name = 'empty-digests'; Environment = @{ CANDIDATE_DIGEST = ''; FAKE_COMMIT_DIGEST = ''; FAKE_DEPLOYMENT_DIGEST = '' } },
+            @{ Name = 'commit-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = 'imageTag=sha-' } },
+            @{ Name = 'deployment-query-error'; Environment = @{ FAKE_AWS_FAIL_MATCH = "imageTag=$($settings.DeploymentTag)" } }
+        )) {
+            Assert-DigestFixture -RunScript $digestRun -Name $fixture.Name -Environment $fixture.Environment -ShouldSucceed $false
+        }
+        Assert-DigestFixture -RunScript '# comment-only digest verification' -Name 'comment-only' -ShouldSucceed $false -RequireProcessFailure $false
+        Assert-DigestFixture -RunScript 'true' -Name 'no-op' -ShouldSucceed $false -RequireProcessFailure $false
 
-    $mutations = @(
-        @{ Name = 'push-branch'; Apply = { param($w) $w.on.push.branches = @('main') } },
-        @{ Name = 'push-path-filter'; Apply = { param($w) $w.on.push | Add-Member -NotePropertyName paths -NotePropertyValue @('RMC-TotalRisk/**') } },
-        @{ Name = 'manual-dispatch'; Apply = { param($w) $w.on.PSObject.Properties.Remove('workflow_dispatch') } },
-        @{ Name = 'branch-guard'; Apply = { param($w) $w.jobs.'build-push-dev'.if = "github.ref == 'refs/heads/main'" } },
-        @{ Name = 'permission'; Apply = { param($w) $w.permissions.contents = 'write' } },
-        @{ Name = 'extra-permission'; Apply = { param($w) $w.permissions | Add-Member -NotePropertyName packages -NotePropertyValue 'write' } },
-        @{ Name = 'concurrency-group'; Apply = { param($w) $w.concurrency.group = 'other' } },
-        @{ Name = 'concurrency-cancel'; Apply = { param($w) $w.concurrency.'cancel-in-progress' = $true } },
-        @{ Name = 'aws-account'; Apply = { param($w) $w.env.AWS_ACCOUNT_ID = '000000000000' } },
-        @{ Name = 'aws-region'; Apply = { param($w) $w.env.AWS_REGION = 'us-east-1' } },
-        @{ Name = 'aws-role'; Apply = { param($w) $w.env.ROLE_TO_ASSUME = 'arn:aws:iam::000000000000:role/wrong' } },
-        @{ Name = 'ecr-repository'; Apply = { param($w) $w.env.ECR_REPOSITORY = 'wrong' } },
-        @{ Name = 'deployment-tag'; Apply = { param($w) $w.env.DEPLOYMENT_TAG = 'latest' } },
-        @{ Name = 'provenance-parser'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Resolve upstream source provenance'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('[0-9a-f]{40}', '[0-9A-Fa-f]{40}') } },
-        @{ Name = 'source-build-arg'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Build Release image'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('${{ steps.source-provenance.outputs.source_revision }}', '$GITHUB_SHA') } },
-        @{ Name = 'snapshot-build-arg'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Build Release image'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('SNAPSHOT_REVISION=$GITHUB_SHA', 'SNAPSHOT_REVISION=not-published') } },
-        @{ Name = 'nuget-audit-helper'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Audit NuGet dependencies'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('Assert-CwbiNuGetAuditClean -AuditOutput', 'Write-Host') } },
-        @{ Name = 'verifier-expectations'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify deployment image'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('-ExpectedSnapshotRevision $env:EXPECTED_SNAPSHOT_REVISION', '') } },
-        @{ Name = 'test-after-credentials'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.'build-push-dev'.steps); $from = Get-StepIndex @($s) 'Configure short-lived AWS credentials'; $item = $s[$from]; $s.RemoveAt($from); $to = Get-StepIndex @($s) 'Test image verifier'; $s.Insert($to, $item); $w.jobs.'build-push-dev'.steps = @($s) } },
-        @{ Name = 'missing-ecr-preflight'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].name = 'Removed preflight' } },
-        @{ Name = 'ecr-preflight-shell'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].shell = 'bash' } },
-        @{ Name = 'ecr-preflight-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].run = '$true # no-op' } },
-        @{ Name = 'ecr-preflight-scope'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('--repository-names $env:ECR_REPOSITORY', '--repository-names wrong') } },
-        @{ Name = 'ecr-preflight-cardinality'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('$repositories.Count -ne 1', '$repositories.Count -lt 1') } },
-        @{ Name = 'ecr-preflight-name'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('$repository.repositoryName -cne $env:ECR_REPOSITORY', '$false') } },
-        @{ Name = 'ecr-preflight-order'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.'build-push-dev'.steps); $from = Get-StepIndex @($s) 'Verify ECR repository'; $item = $s[$from]; $s.RemoveAt($from); $to = (Get-StepIndex @($s) 'Log in to Amazon ECR') + 1; $s.Insert($to, $item); $w.jobs.'build-push-dev'.steps = @($s) } },
-        @{ Name = 'ecr-setting-mutation'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify ECR repository'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run) + "`naws ecr put-image-tag-mutability" } },
-        @{ Name = 'candidate-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}', 'candidate') } },
-        @{ Name = 'publish-shell'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].shell = 'pwsh' } },
-        @{ Name = 'publish-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].run = 'true # no-op' } },
-        @{ Name = 'commit-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('sha-$GITHUB_SHA', 'snapshot') } },
-        @{ Name = 'collision-check'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('existing_commit_digest', 'removed_collision_check') } },
-        @{ Name = 'digest-check'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify published image digest'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run).Replace('test "$deployment_digest" = "$CANDIDATE_DIGEST"', 'true') } },
-        @{ Name = 'digest-shell'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify published image digest'; $w.jobs.'build-push-dev'.steps[$i].shell = 'pwsh' } },
-        @{ Name = 'digest-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify published image digest'; $w.jobs.'build-push-dev'.steps[$i].run = 'true # no-op' } },
-        @{ Name = 'latest-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run) + "`ndocker push `"`$image_uri`:latest`"" } },
-        @{ Name = 'static-credential'; Apply = { param($w) $w.env | Add-Member -NotePropertyName AWS_ACCESS_KEY_ID -NotePropertyValue 'fixture' } },
-        @{ Name = 'unreviewed-secret'; Apply = { param($w) $w.env | Add-Member -NotePropertyName EXTRA_SECRET -NotePropertyValue '${{ secrets.SOMETHING_ELSE }}' } },
-        @{ Name = 'duplicate-chainguard-secret'; Apply = { param($w) $w.env | Add-Member -NotePropertyName CGR_PASSWORD_COPY -NotePropertyValue '${{ secrets.CGR_PASSWORD }}' } },
-        @{ Name = 'chainguard-login-after-image-test'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.'build-push-dev'.steps); $from = Get-StepIndex @($s) 'Log in to Chainguard registry'; $item = $s[$from]; $s.RemoveAt($from); $to = (Get-StepIndex @($s) 'Test image verifier') + 1; $s.Insert($to, $item); $w.jobs.'build-push-dev'.steps = @($s) } },
-        @{ Name = 'chainguard-login-registry'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Log in to Chainguard registry'; $w.jobs.'build-push-dev'.steps[$i].with.registry = 'docker.io' } },
-        @{ Name = 'ecs-call'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Verify published image digest'; $w.jobs.'build-push-dev'.steps[$i].run = ([string]$w.jobs.'build-push-dev'.steps[$i].run) + "`naws ecs update-service" } },
-        @{ Name = 'unpinned-action'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Check out repository'; $w.jobs.'build-push-dev'.steps[$i].uses = 'actions/checkout@v6' } },
-        @{ Name = 'duplicate-known-action'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Set up .NET SDK'; $w.jobs.'build-push-dev'.steps[$i].uses = 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' } },
-        @{ Name = 'unknown-action'; Apply = { param($w) $w.jobs.'build-push-dev'.steps += [pscustomobject]@{ name = 'Unknown'; uses = 'example/action@1111111111111111111111111111111111111111' } } },
-        @{ Name = 'second-job-unknown-action'; Apply = { param($w) $w.jobs | Add-Member -NotePropertyName 'unexpected-job' -NotePropertyValue ([pscustomobject]@{ 'runs-on' = 'ubuntu-latest'; steps = @([pscustomobject]@{ name = 'Unknown'; uses = 'example/action@1111111111111111111111111111111111111111' }) }) } },
-        @{ Name = 'second-job-unpinned-action'; Apply = { param($w) $w.jobs | Add-Member -NotePropertyName 'unexpected-job' -NotePropertyValue ([pscustomobject]@{ 'runs-on' = 'ubuntu-latest'; steps = @([pscustomobject]@{ name = 'Unpinned'; uses = 'actions/checkout@v6' }) }) } },
-        @{ Name = 'second-job-without-action'; Apply = { param($w) $w.jobs | Add-Member -NotePropertyName 'unexpected-job' -NotePropertyValue ([pscustomobject]@{ 'runs-on' = 'ubuntu-latest'; steps = @([pscustomobject]@{ name = 'No action'; run = 'true' }) }) } }
-    )
+        $mutations = @(
+            @{ Name = 'push-branch'; Apply = { param($w) $w.on.push.branches = @('main') } },
+            @{ Name = 'push-path-filter'; Apply = { param($w) $w.on.push | Add-Member -NotePropertyName paths -NotePropertyValue @('RMC-TotalRisk/**') } },
+            @{ Name = 'manual-dispatch'; Apply = { param($w) $w.on.PSObject.Properties.Remove('workflow_dispatch') } },
+            @{ Name = 'branch-guard'; Apply = { param($w) $w.jobs.($settings.JobName).if = "github.ref == 'refs/heads/main'" } },
+            @{ Name = 'permission'; Apply = { param($w) $w.permissions.contents = 'write' } },
+            @{ Name = 'extra-permission'; Apply = { param($w) $w.permissions | Add-Member -NotePropertyName packages -NotePropertyValue 'write' } },
+            @{ Name = 'concurrency-group'; Apply = { param($w) $w.concurrency.group = 'other' } },
+            @{ Name = 'concurrency-cancel'; Apply = { param($w) $w.concurrency.'cancel-in-progress' = $true } },
+            @{ Name = 'aws-account'; Apply = { param($w) $w.env.AWS_ACCOUNT_ID = '000000000000' } },
+            @{ Name = 'aws-region'; Apply = { param($w) $w.env.AWS_REGION = 'us-east-1' } },
+            @{ Name = 'aws-role'; Apply = { param($w) $w.env.ROLE_TO_ASSUME = 'arn:aws:iam::000000000000:role/wrong' } },
+            @{ Name = 'ecr-repository'; Apply = { param($w) $w.env.ECR_REPOSITORY = 'wrong' } },
+            @{ Name = 'deployment-tag'; Apply = { param($w) $w.env.DEPLOYMENT_TAG = 'latest' } },
+        @{ Name = 'workflow-name'; Apply = { param($w) $w.name = $otherSettings.WorkflowName } },
+        @{ Name = 'other-environment-branch'; Apply = { param($w) $w.on.push.branches = @($otherSettings.Branch) } },
+        @{ Name = 'other-environment-account'; Apply = { param($w) $w.env.AWS_ACCOUNT_ID = $otherSettings.AwsAccountId } },
+        @{ Name = 'other-environment-tag'; Apply = { param($w) $w.env.DEPLOYMENT_TAG = $otherSettings.DeploymentTag } },
+        @{ Name = 'other-environment-concurrency'; Apply = { param($w) $w.concurrency.group = $otherSettings.ConcurrencyGroup } },
+        @{ Name = 'contract-environment'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify deployment workflow contract'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace("-Environment $($settings.Name)", "-Environment $($otherSettings.Name)") } },
+            @{ Name = 'provenance-parser'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Resolve upstream source provenance'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('[0-9a-f]{40}', '[0-9A-Fa-f]{40}') } },
+            @{ Name = 'source-build-arg'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Build Release image'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('${{ steps.source-provenance.outputs.source_revision }}', '$GITHUB_SHA') } },
+            @{ Name = 'snapshot-build-arg'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Build Release image'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('SNAPSHOT_REVISION=$GITHUB_SHA', 'SNAPSHOT_REVISION=not-published') } },
+            @{ Name = 'nuget-audit-helper'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Audit NuGet dependencies'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('Assert-CwbiNuGetAuditClean -AuditOutput', 'Write-Host') } },
+            @{ Name = 'verifier-expectations'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify deployment image'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('-ExpectedSnapshotRevision $env:EXPECTED_SNAPSHOT_REVISION', '') } },
+            @{ Name = 'test-after-credentials'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.($settings.JobName).steps); $from = Get-StepIndex @($s) 'Configure short-lived AWS credentials'; $item = $s[$from]; $s.RemoveAt($from); $to = Get-StepIndex @($s) 'Test image verifier'; $s.Insert($to, $item); $w.jobs.($settings.JobName).steps = @($s) } },
+            @{ Name = 'missing-ecr-preflight'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].name = 'Removed preflight' } },
+            @{ Name = 'ecr-preflight-shell'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].shell = 'bash' } },
+            @{ Name = 'ecr-preflight-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].run = '$true # no-op' } },
+            @{ Name = 'ecr-preflight-scope'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('--repository-names $env:ECR_REPOSITORY', '--repository-names wrong') } },
+            @{ Name = 'ecr-preflight-cardinality'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('$repositories.Count -ne 1', '$repositories.Count -lt 1') } },
+            @{ Name = 'ecr-preflight-name'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('$repository.repositoryName -cne $env:ECR_REPOSITORY', '$false') } },
+            @{ Name = 'ecr-preflight-order'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.($settings.JobName).steps); $from = Get-StepIndex @($s) 'Verify ECR repository'; $item = $s[$from]; $s.RemoveAt($from); $to = (Get-StepIndex @($s) 'Log in to Amazon ECR') + 1; $s.Insert($to, $item); $w.jobs.($settings.JobName).steps = @($s) } },
+            @{ Name = 'ecr-setting-mutation'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify ECR repository'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run) + "`naws ecr put-image-tag-mutability" } },
+            @{ Name = 'candidate-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}', 'candidate') } },
+            @{ Name = 'publish-shell'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'; $w.jobs.($settings.JobName).steps[$i].shell = 'pwsh' } },
+            @{ Name = 'publish-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'; $w.jobs.($settings.JobName).steps[$i].run = 'true # no-op' } },
+            @{ Name = 'commit-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('sha-$GITHUB_SHA', 'snapshot') } },
+            @{ Name = 'collision-check'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('existing_commit_digest', 'removed_collision_check') } },
+            @{ Name = 'digest-check'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify published image digest'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('test "$deployment_digest" = "$CANDIDATE_DIGEST"', 'true') } },
+            @{ Name = 'digest-shell'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify published image digest'; $w.jobs.($settings.JobName).steps[$i].shell = 'pwsh' } },
+            @{ Name = 'digest-no-op'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify published image digest'; $w.jobs.($settings.JobName).steps[$i].run = 'true # no-op' } },
+            @{ Name = 'latest-tag'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run) + "`ndocker push `"`$image_uri`:latest`"" } },
+            @{ Name = 'static-credential'; Apply = { param($w) $w.env | Add-Member -NotePropertyName AWS_ACCESS_KEY_ID -NotePropertyValue 'fixture' } },
+            @{ Name = 'unreviewed-secret'; Apply = { param($w) $w.env | Add-Member -NotePropertyName EXTRA_SECRET -NotePropertyValue '${{ secrets.SOMETHING_ELSE }}' } },
+            @{ Name = 'duplicate-chainguard-secret'; Apply = { param($w) $w.env | Add-Member -NotePropertyName CGR_PASSWORD_COPY -NotePropertyValue '${{ secrets.CGR_PASSWORD }}' } },
+            @{ Name = 'chainguard-login-after-image-test'; Apply = { param($w) $s = [System.Collections.ArrayList]@($w.jobs.($settings.JobName).steps); $from = Get-StepIndex @($s) 'Log in to Chainguard registry'; $item = $s[$from]; $s.RemoveAt($from); $to = (Get-StepIndex @($s) 'Test image verifier') + 1; $s.Insert($to, $item); $w.jobs.($settings.JobName).steps = @($s) } },
+            @{ Name = 'chainguard-login-registry'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Log in to Chainguard registry'; $w.jobs.($settings.JobName).steps[$i].with.registry = 'docker.io' } },
+            @{ Name = 'ecs-call'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify published image digest'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run) + "`naws ecs update-service" } },
+            @{ Name = 'unpinned-action'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Check out repository'; $w.jobs.($settings.JobName).steps[$i].uses = 'actions/checkout@v6' } },
+            @{ Name = 'duplicate-known-action'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Set up .NET SDK'; $w.jobs.($settings.JobName).steps[$i].uses = 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' } },
+            @{ Name = 'unknown-action'; Apply = { param($w) $w.jobs.($settings.JobName).steps += [pscustomobject]@{ name = 'Unknown'; uses = 'example/action@1111111111111111111111111111111111111111' } } },
+            @{ Name = 'second-job-unknown-action'; Apply = { param($w) $w.jobs | Add-Member -NotePropertyName 'unexpected-job' -NotePropertyValue ([pscustomobject]@{ 'runs-on' = 'ubuntu-latest'; steps = @([pscustomobject]@{ name = 'Unknown'; uses = 'example/action@1111111111111111111111111111111111111111' }) }) } },
+            @{ Name = 'second-job-unpinned-action'; Apply = { param($w) $w.jobs | Add-Member -NotePropertyName 'unexpected-job' -NotePropertyValue ([pscustomobject]@{ 'runs-on' = 'ubuntu-latest'; steps = @([pscustomobject]@{ name = 'Unpinned'; uses = 'actions/checkout@v6' }) }) } },
+            @{ Name = 'second-job-without-action'; Apply = { param($w) $w.jobs | Add-Member -NotePropertyName 'unexpected-job' -NotePropertyValue ([pscustomobject]@{ 'runs-on' = 'ubuntu-latest'; steps = @([pscustomobject]@{ name = 'No action'; run = 'true' }) }) } }
+        )
 
-    foreach ($mutation in $mutations) {
-        Assert-MutationRejected -Baseline $baseline -Name $mutation.Name -Mutate $mutation.Apply
-    }
+        foreach ($mutation in $mutations) {
+            Assert-MutationRejected -Baseline $baseline -Name $mutation.Name -Mutate $mutation.Apply
+        }
 
-    Assert-PublishMutationRejected -Baseline $baseline -Name 'deployment-before-collision' -ExpectedCalls $newCommitCalls -ExpectedOutput $expectedPublishOutput -Mutate {
-        param($w)
-        $index = Get-StepIndex @($w.jobs.'build-push-dev'.steps) 'Publish commit and deployment tags'
-        $run = [string]$w.jobs.'build-push-dev'.steps[$index].run
-        $originalDeployment = @'
+        Assert-PublishMutationRejected -Baseline $baseline -Name 'deployment-before-collision' -ExpectedCalls $newCommitCalls -ExpectedOutput $expectedPublishOutput -Mutate {
+            param($w)
+            $index = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Publish commit and deployment tags'
+            $run = [string]$w.jobs.($settings.JobName).steps[$index].run
+            $originalDeployment = @'
 docker tag "$LOCAL_IMAGE" "$image_uri:$DEPLOYMENT_TAG"
 docker push "$image_uri:$DEPLOYMENT_TAG"
 '@
-        $commentDecoys = @'
+            $commentDecoys = @'
 # docker tag "$LOCAL_IMAGE" "$image_uri:$DEPLOYMENT_TAG"
 # docker push "$image_uri:$DEPLOYMENT_TAG"
 '@
-        $earlyDeployment = @'
+            $earlyDeployment = @'
 deployment_uri="$image_uri:$DEPLOYMENT_TAG"
 docker tag "$LOCAL_IMAGE" "$deployment_uri"
 docker push "$deployment_uri"
 
 existing_commit_digest=
 '@
-        $run = $run.Replace($originalDeployment, $commentDecoys)
-        $run = $run.Replace('existing_commit_digest=', $earlyDeployment)
-        $w.jobs.'build-push-dev'.steps[$index].run = $run
-    }
+            $run = $run.Replace($originalDeployment, $commentDecoys)
+            $run = $run.Replace('existing_commit_digest=', $earlyDeployment)
+            $w.jobs.($settings.JobName).steps[$index].run = $run
+        }
 
-    'All RMC-TotalRisk CWBI API workflow contract and mutation tests passed.'
+        "All RMC-TotalRisk CWBI API $($settings.Name) workflow contract and mutation tests passed."
+    }
 }
 finally {
     if (Test-Path -LiteralPath $testRoot) {
