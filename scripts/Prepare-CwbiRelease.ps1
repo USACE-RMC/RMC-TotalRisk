@@ -4,7 +4,6 @@ param(
     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$TargetWorktree,
     [Parameter(Mandatory)][ValidatePattern('^(cwbi-dev|snapshot/sanitized)$')][string]$ExpectedTargetBranch,
     [Parameter(Mandatory)][ValidatePattern('^([0-9a-fA-F]{40}|unborn)$')][string]$ExpectedTargetCommit,
-    [Parameter(Mandatory)][ValidatePattern('^cwbi-(dev|test)$')][string]$DestinationBranch,
     [string]$EvidenceDirectory,
     [switch]$KeepStaging
 )
@@ -133,6 +132,9 @@ try {
     Invoke-ReleaseCommand -Name 'CWBI local-publisher contract tests' -WorkingDirectory $repositoryRoot -Command 'pwsh' -Arguments @(
         '-NoProfile', '-File', '.github/tests/Publish-CwbiSnapshot.Tests.ps1'
     )
+    Invoke-ReleaseCommand -Name 'CWBI dev-to-test promotion tests' -WorkingDirectory $repositoryRoot -Command 'pwsh' -Arguments @(
+        '-NoProfile', '-File', '.github/tests/Promote-CwbiDevToTest.Tests.ps1'
+    )
     Invoke-ReleaseCommand -Name 'CWBI workflow contract tests' -WorkingDirectory $verificationRoot -Command 'pwsh' -Arguments @(
         '-NoProfile', '-File', '.github/tests/CwbiApiWorkflow.Tests.ps1'
     )
@@ -229,7 +231,7 @@ try {
         -EvidenceDirectory $EvidenceDirectory `
         -ExpectedCurrentBranch $ExpectedTargetBranch `
         -ExpectedCurrentCommit $ExpectedTargetCommit `
-        -DestinationBranchName $DestinationBranch `
+        -DestinationBranchName 'cwbi-dev' `
         -ExpectedCommonGitDirectory $sourceCommonGitDirectory
 
     Write-Host "Prepared local $($targetResult.LocalBranch) commit $($targetResult.Commit) for $($targetResult.Branch) from $($export.SourceCommit)."

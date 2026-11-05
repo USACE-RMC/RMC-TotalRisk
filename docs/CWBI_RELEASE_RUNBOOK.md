@@ -1,15 +1,15 @@
 # Publish `v2.0-development` to CWBI
 
-This is the repeatable process for sending a sanitized copy of `RMC-TotalRisk/v2.0-development` to `cwbi-apps/dst-total-risk`. It mirrors the process used for System-Response (`cwbi-apps/dst-src`) and RasProcessingApi (`cwbi-apps/dst-ras`). Every publish goes to one environment, chosen with `-Environment`:
+This is the repeatable process for sending a sanitized copy of `RMC-TotalRisk/v2.0-development` to `cwbi-apps/dst-total-risk`. It mirrors the process used for System-Response (`cwbi-apps/dst-src`) and RasProcessingApi (`cwbi-apps/dst-ras`). Every publish goes to `cwbi-dev`. Test receives only what has already run on dev: once you have checked the result on CWBI dev, promote it to `cwbi-test` with a pull request (see [Promote dev to test](#promote-dev-to-test)).
 
-| `-Environment` | Receiving branch | Workflow that runs | AWS account | ECR tag |
+| Branch | Workflow that runs | AWS account | ECR tag | How it is updated |
 |---|---|---|---|---|
-| `test` | `cwbi-test` | `cwbi-build-push-api-test.yml` | `276847049069` | `dst-total-risk:test` |
-| `dev` | `cwbi-dev` | `cwbi-build-push-api-dev.yml` | `718787032875` | `dst-total-risk:dev` |
+| `cwbi-dev` | `cwbi-build-push-api-dev.yml` | `718787032875` | `dst-total-risk:dev` | `Publish-CwbiSnapshot.ps1` |
+| `cwbi-test` | `cwbi-build-push-api-test.yml` | `276847049069` | `dst-total-risk:test` | `Promote-CwbiDevToTest.ps1` |
 
-`test` is the normal target. `dev` is kept for the record and for the occasional dev-only push. There is no default: the publisher refuses to run without `-Environment`.
+Never publish directly to `cwbi-test`. A commit that exists only on `cwbi-test` makes every later promotion conflict.
 
-The process runs on your computer. It does not use a GitHub Action to do the publishing and does not require a permanent second worktree. The GitHub Action for the receiving branch takes over after the push: it rebuilds the image, verifies it, and pushes it to the `dst-total-risk` ECR repository in that environment's AWS account with that environment's tag, which is what CWBI's pipeline deploys.
+The process runs on your computer. It does not use a GitHub Action to do the publishing and does not require a permanent second worktree. The branch's GitHub Action takes over after the push: it rebuilds the image, verifies it, and pushes it to the `dst-total-risk` ECR repository in that environment's AWS account with that environment's tag, which is what CWBI's pipeline deploys.
 
 `v2.0-development` is the source branch because it is the home of the v2.0 work until that merges to `main`. When the merge happens, the branch name is pinned in three places: `scripts/Publish-CwbiSnapshot.ps1` (`$originBranch`), the approved-ref list in `scripts/cwbi-release/CwbiRelease.psm1`, and the fixtures in `.github/tests/Prepare-CwbiRelease.Tests.ps1` and `.github/tests/Publish-CwbiSnapshot.Tests.ps1`.
 
@@ -17,7 +17,7 @@ The process runs on your computer. It does not use a GitHub Action to do the pub
 
 - `v2.0-development`: the approved RMC-TotalRisk code you are publishing.
 - `snapshot/sanitized`: a temporary local holding branch. The script creates it and removes it after the run.
-- `cwbi-test` / `cwbi-dev`: the receiving branches in `cwbi-apps/dst-total-risk`. Each one has its own build-and-push workflow, and a push to one never runs the other's.
+- `cwbi-dev` / `cwbi-test`: the two environment branches in `cwbi-apps/dst-total-risk`. Each one has its own build-and-push workflow, and a push to one never runs the other's.
 - `cwbi`: the local nickname (Git remote) for `https://github.com/cwbi-apps/dst-total-risk.git`.
 - `scripts/cwbi-release/policy.json`: the allowlist of files that may leave this repository. Anything not listed there is never published.
 
@@ -78,10 +78,8 @@ git config --local push.default nothing
 cd C:\GitHub\RMC-TotalRisk
 git switch v2.0-development
 git status --short --branch
-pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1 -Environment test
+pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1
 ```
-
-Use `-Environment dev` instead only when you deliberately want to update the dev environment.
 
 `git status` should show `v2.0-development` with no changed or untracked files. The publisher stops if the checkout is not clean.
 
@@ -98,11 +96,11 @@ Use `-Environment dev` instead only when you deliberately want to update the dev
 
 The long part is stage 4. It creates the approved file-only copy (sanitized snapshot), scans it and the reachable Git history for secrets, restores and builds it in locked mode, runs the complete `RMC.TotalRisk.Tests` and `RMC.TotalRisk.Api.Tests` suites in Release, audits NuGet dependencies for known vulnerabilities, builds the Docker image, and verifies that image (labels, non-root user, port 8083, path base `/total-risk`, healthcheck, runtime filesystem, and live `/total-risk/health` and `/total-risk/health/detailed` probes).
 
-4. At stage 5, review the three commit IDs and the change summary. The middle line names the branch you chose:
+4. At stage 5, review the three commit IDs and the change summary.:
 
 ```text
 Source v2.0-development: <RMC-TotalRisk commit>
-Previous cwbi-test: <current destination commit, or "unborn" if that branch does not exist yet>
+Previous cwbi-dev: <current destination commit, or "unborn" if that branch does not exist yet>
 Prepared snapshot:       <new sanitized commit>
 ```
 
@@ -117,15 +115,13 @@ Any other response cancels the publication. Nothing is sent (Git push) before th
 6. A successful run ends with messages like:
 
 ```text
-Published and verified cwbi-test at <commit>.
+Published and verified cwbi-dev at <commit>.
 Temporary snapshot workspace removed after publication.
 ```
 
-The push then starts that branch's workflow in `cwbi-apps/dst-total-risk`. Watch it under the repository's Actions tab. Its first steps re-run the same contract tests, restore, build, tests, audit, image build and image verification; only then does it assume the AWS role and push to ECR.
+The push then starts the dev workflow in `cwbi-apps/dst-total-risk`. Watch it under the repository's Actions tab. Its first steps re-run the same contract tests, restore, build, tests, audit, image build and image verification; only then does it assume the AWS role and push to ECR.
 
-### The first publication to an environment
-
-`cwbi-test` is created once from the `cwbi-dev` history, so the first test publish is an ordinary forward update. If a receiving branch does not exist at all, the publisher detects that (`Previous cwbi-test: unborn`), builds the snapshot as a root commit, and creates the branch with the push. Nothing else is different.
+### The first run in an environment
 
 The first workflow run in an environment is also the first test of the AWS side there. The role name in each workflow file (`github-actions-ecr-dst-total-risk`, in that environment's account), the ECR repository (`dst-total-risk`), and the service port and path base (8083, `/total-risk`) follow the convention used by the other repositories. If the role is wrong, or its trust policy does not list `cwbi-apps/dst-total-risk`, the run fails at "Configure short-lived AWS credentials" with `Not authorized to perform sts:AssumeRoleWithWebIdentity`, before anything is pushed to ECR. That message is what to send to CWBI.
 
@@ -133,7 +129,6 @@ The first workflow run in an environment is also the first test of the AWS side 
 
 Before sending anything, the script verifies that:
 
-- you named the environment explicitly;
 - you started from a clean `v2.0-development`;
 - local `v2.0-development` exactly matches `origin/v2.0-development`;
 - `origin` and `cwbi` point to the approved repositories;
@@ -151,7 +146,7 @@ If any check fails, the script stops without pushing and removes its temporary w
 To run the full preparation and review but never receive a publication prompt, use:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1 -Environment test -PrepareOnly
+pwsh -NoProfile -File .\scripts\Publish-CwbiSnapshot.ps1 -PrepareOnly
 ```
 
 This still performs the full build, tests, scans, audit, and Docker verification. It then removes the temporary workspace.
@@ -163,6 +158,7 @@ The publisher runs these itself, but they can be run directly while changing the
 ```powershell
 pwsh -NoProfile -File .\.github\tests\Prepare-CwbiRelease.Tests.ps1
 pwsh -NoProfile -File .\.github\tests\Publish-CwbiSnapshot.Tests.ps1
+pwsh -NoProfile -File .\.github\tests\Promote-CwbiDevToTest.Tests.ps1
 pwsh -NoProfile -File .\.github\tests\CwbiApiWorkflow.Tests.ps1
 pwsh -NoProfile -File .\.github\tests\Verify-TotalRiskImage.Tests.ps1
 ```
@@ -173,15 +169,41 @@ The last two need Docker. Run `Prepare-CwbiRelease.Tests.ps1` from PowerShell, n
 
 | Message | What to do |
 |---|---|
-| Prompt for `Environment`, or `does not belong to the set "dev,test"` | Pass `-Environment test` or `-Environment dev` (lowercase). |
 | `Switch to v2.0-development before publishing` | Run `git switch v2.0-development`, then start again. |
 | `checkout must be clean` | Commit, stash, or remove the reported local changes. |
 | `Repository-local push.default must be exactly nothing` | Run `git config --local push.default nothing` (see One-time setup). |
 | `snapshot/sanitized already exists` | Run `git worktree list`. If no worktree uses it and it is only a failed temporary branch, run `git branch -D snapshot/sanitized`. |
-| `cwbi-test changed while ... prepared` (or `cwbi-dev`) | Someone updated the destination. Start the publisher again so it uses the new version. |
+| `cwbi-dev changed while ... prepared` | Someone updated the destination. Start the publisher again so it uses the new version. |
 | `NuGet reported vulnerable packages` | A dependency has a known advisory. Upgrade it on `v2.0-development` first; the audit is a hard gate. |
 | `non-allowlisted paths` | A new file or folder was added inside a shipped directory that the policy does not cover, or a new root file is needed by the build. Add it to `scripts/cwbi-release/policy.json` if it belongs in the deployment, or move it. |
 | `NU1004` or `locked-mode` restore failure | A package version moved without its `packages.lock.json`. Run `dotnet restore --force-evaluate` on `v2.0-development`, review the lock-file diff, and commit it. |
 | Authentication or `403` error | Your current Git credentials cannot push to `cwbi-apps/dst-total-risk`; resolve access with that repository's administrators. |
 | Docker connection error | Start Docker Desktop, wait until it is ready, and run the publisher again. |
 | `cgr.dev/usace-cwbi/chainguard-base-fips` pull is unauthorized or not found | Your Chainguard login is missing or the pull token expired. Create a new pull token, run `docker login cgr.dev`, and run the publisher again. |
+
+## Promote dev to test
+
+Run this once the dev deployment has been checked. It needs the GitHub CLI (`gh`), signed in with `gh auth login` as an account that can open and merge pull requests in `cwbi-apps/dst-total-risk`.
+
+```powershell
+pwsh -NoProfile -File .\scripts\Promote-CwbiDevToTest.ps1
+```
+
+The script:
+
+1. checks that `gh` is installed and signed in;
+2. reads `cwbi-dev` and `cwbi-test`, and stops if there is nothing to promote or if `cwbi-test` has changes that `cwbi-dev` does not;
+3. shows the `cwbi-dev` commit to be promoted with the source commit it came from, each snapshot being promoted, and the changed files;
+4. after you type exactly `PROMOTE`, opens a pull request from `cwbi-dev` into `cwbi-test` (or reuses one already open) and merges it with a merge commit;
+5. checks that `cwbi-test` now ends at that merge commit, and prints the pull request and the link to the test workflow runs.
+
+The merge only succeeds if `cwbi-dev` is still at the commit the script showed you. If someone published to dev after you checked it, the merge is refused and nothing reaches test; check the new dev deployment and run the script again.
+
+Always promote with this script, or with a pull request merged using **Create a merge commit**. Squash or rebase merges create new commits on `cwbi-test`, after which every promotion conflicts.
+
+| Message | What to do |
+|---|---|
+| `The GitHub CLI (gh) is not installed` or `gh auth status ... failed` | Install the GitHub CLI and run `gh auth login`. |
+| `Nothing to promote` | `cwbi-test` already has the current `cwbi-dev`. Publish to dev first. |
+| `cwbi-test has changes that cwbi-dev does not` | Something was committed to `cwbi-test` directly. Ask the repository administrators before promoting. |
+| `gh pr merge ... failed` | `cwbi-dev` moved after the review, or you lack merge permission. The pull request stays open; run the script again to reuse it. |
