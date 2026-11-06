@@ -1,5 +1,5 @@
 # Builds and verifies the RMC-TotalRisk image, then publishes it to CWBI's
-# dst-total-risk ECR repository in the test account. Updating dst-total-risk:test is the deployment signal consumed
+# dst2-total-risk ECR repository in the test account. Updating dst2-total-risk:test is the deployment signal consumed
 # by CWBI's existing ECR-source CodePipeline; this workflow does not call ECS.
 #
 # This file is published into cwbi-apps/dst-total-risk by scripts/Publish-CwbiSnapshot.ps1
@@ -19,9 +19,9 @@ concurrency:
 env:
   AWS_ACCOUNT_ID: "276847049069"
   AWS_REGION: us-gov-west-1
-  # Assumed by convention from the dst-api and dst-total-risk roles; confirmed by the first run.
-  ROLE_TO_ASSUME: arn:aws-us-gov:iam::276847049069:role/github-actions-ecr-dst-total-risk
-  ECR_REPOSITORY: dst-total-risk
+  # dst2 role name follows CWBI's test naming convention; not yet confirmed by CWBI.
+  ROLE_TO_ASSUME: arn:aws-us-gov:iam::276847049069:role/github-actions-ecr-dst2-total-risk
+  ECR_REPOSITORY: dst2-total-risk
   DEPLOYMENT_TAG: test
   LOCAL_IMAGE: dst-total-risk:deployment-candidate
 
