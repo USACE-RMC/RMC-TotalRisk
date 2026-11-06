@@ -19,6 +19,8 @@ $environmentSettings = [ordered]@{
         ConcurrencyGroup = 'cwbi-total-risk-dev'
         AwsAccountId = '718787032875'
         DeploymentTag = 'dev'
+        EcrRepository = 'dst-total-risk'
+        RoleName = 'github-actions-ecr-dst-total-risk'
     }
     test = [pscustomobject]@{
         Name = 'test'
@@ -29,6 +31,8 @@ $environmentSettings = [ordered]@{
         ConcurrencyGroup = 'cwbi-total-risk-test'
         AwsAccountId = '276847049069'
         DeploymentTag = 'test'
+        EcrRepository = 'dst2-total-risk'
+        RoleName = 'github-actions-ecr-dst2-total-risk'
     }
 }
 $nuGetAuditHelperPath = Join-Path $repositoryRoot '.github\scripts\CwbiNuGetAudit.ps1'
@@ -99,8 +103,8 @@ function Assert-CwbiWorkflowContract {
 
     Assert-Condition ($workflow.env.AWS_ACCOUNT_ID -ceq $Settings.AwsAccountId) 'Workflow AWS account is incorrect.'
     Assert-Condition ($workflow.env.AWS_REGION -ceq 'us-gov-west-1') 'Workflow AWS region is incorrect.'
-    Assert-Condition ($workflow.env.ROLE_TO_ASSUME -ceq "arn:aws-us-gov:iam::$($Settings.AwsAccountId):role/github-actions-ecr-dst-total-risk") 'Workflow must assume the dst-total-risk ECR role in its environment account.'
-    Assert-Condition ($workflow.env.ECR_REPOSITORY -ceq 'dst-total-risk') 'Workflow ECR repository is incorrect.'
+    Assert-Condition ($workflow.env.ROLE_TO_ASSUME -ceq "arn:aws-us-gov:iam::$($Settings.AwsAccountId):role/$($Settings.RoleName)") "Workflow must assume the $($Settings.RoleName) role in its environment account."
+    Assert-Condition ($workflow.env.ECR_REPOSITORY -ceq $Settings.EcrRepository) "Workflow must publish to the $($Settings.EcrRepository) ECR repository."
     Assert-Condition ($workflow.env.DEPLOYMENT_TAG -ceq $Settings.DeploymentTag) "CWBI deployment tag must be $($Settings.DeploymentTag)."
     Assert-Condition ($workflow.env.LOCAL_IMAGE -ceq 'dst-total-risk:deployment-candidate') 'Local candidate image name is incorrect.'
 
@@ -818,6 +822,8 @@ try {
         @{ Name = 'other-environment-account'; Apply = { param($w) $w.env.AWS_ACCOUNT_ID = $otherSettings.AwsAccountId } },
         @{ Name = 'other-environment-tag'; Apply = { param($w) $w.env.DEPLOYMENT_TAG = $otherSettings.DeploymentTag } },
         @{ Name = 'other-environment-concurrency'; Apply = { param($w) $w.concurrency.group = $otherSettings.ConcurrencyGroup } },
+        @{ Name = 'other-environment-repository'; Apply = { param($w) $w.env.ECR_REPOSITORY = $otherSettings.EcrRepository } },
+        @{ Name = 'other-environment-role'; Apply = { param($w) $w.env.ROLE_TO_ASSUME = "arn:aws-us-gov:iam::$($settings.AwsAccountId):role/$($otherSettings.RoleName)" } },
         @{ Name = 'contract-environment'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Verify deployment workflow contract'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace("-Environment $($settings.Name)", "-Environment $($otherSettings.Name)") } },
             @{ Name = 'provenance-parser'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Resolve upstream source provenance'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('[0-9a-f]{40}', '[0-9A-Fa-f]{40}') } },
             @{ Name = 'source-build-arg'; Apply = { param($w) $i = Get-StepIndex @($w.jobs.($settings.JobName).steps) 'Build Release image'; $w.jobs.($settings.JobName).steps[$i].run = ([string]$w.jobs.($settings.JobName).steps[$i].run).Replace('${{ steps.source-provenance.outputs.source_revision }}', '$GITHUB_SHA') } },

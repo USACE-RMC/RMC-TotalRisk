@@ -5,7 +5,9 @@ This is the repeatable process for sending a sanitized copy of `RMC-TotalRisk/v2
 | Branch | Workflow that runs | AWS account | ECR tag | How it is updated |
 |---|---|---|---|---|
 | `cwbi-dev` | `cwbi-build-push-api-dev.yml` | `718787032875` | `dst-total-risk:dev` | `Publish-CwbiSnapshot.ps1` |
-| `cwbi-test` | `cwbi-build-push-api-test.yml` | `276847049069` | `dst-total-risk:test` | `Promote-CwbiDevToTest.ps1` |
+| `cwbi-test` | `cwbi-build-push-api-test.yml` | `276847049069` | `dst2-total-risk:test` | `Promote-CwbiDevToTest.ps1` |
+
+Test and prod AWS resources are named `dst2` (ECR repository `dst2-total-risk`, role `github-actions-ecr-dst2-total-risk`) so they do not collide with the older DST's `dst` resources. Dev keeps its `dst` names. The test role name follows that convention and is not yet confirmed by CWBI.
 
 Never publish directly to `cwbi-test`. A commit that exists only on `cwbi-test` makes every later promotion conflict.
 
